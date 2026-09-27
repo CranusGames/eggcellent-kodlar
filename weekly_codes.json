@@ -1,6 +1,7 @@
 {
   "timezoneOffsetHours": 3,
   "codes": [
+    { "code": "EGGINTHEWORLD50", "start": "2026-09-28 01:10", "coins": 50 },
     { "code": "YUMURTA1", "start": "2026-10-05 00:00", "coins": 75 },
     { "code": "TAVSAN2", "start": "2026-10-12 00:00", "coins": 100 },
     { "code": "CIVCIV3", "start": "2026-10-19 00:00", "coins": 150 },
