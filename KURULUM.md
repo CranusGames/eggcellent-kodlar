@@ -104,8 +104,8 @@ Token sadece o tarayıcıda saklanır. Telefon kaybolursa: GitHub → aynı sayf
 **Instagram görseli:** takvimde her geçerli kodun yanındaki kamera simgesi paylaşım
 görselini açar. **Gönderi 4:5** (1080×1350) ya da **Hikaye 9:16** (1080×1920) seç.
 Telefonda **Paylaş** → Instagram'a doğrudan gider; bilgisayarda **İndir** ile PNG kaydet.
-Görselde: oyun simgesi, HAFTANIN KODU, kod, ödül (skin resmi + adı ya da coin), geçerlilik
-tarihleri ve "Oyunda: MAĞAZA › KOD GİR".
+Görsel **İngilizce**: CODE OF THE WEEK, kod, ödül (skin resmi + İngilizce adı ya da
+coin), geçerlilik tarihleri ve "In game: SHOP › ENTER CODE".
 
 **Birkaç haftayı önceden girmek serbest.** Sunucu sırası gelince kendisi geçer.
 

@@ -1061,7 +1061,6 @@ async function drawShare() {
   // hizli tiklamada (bicim degistir / baska kod ac) iki cizim ayni tuvale karisiyordu.
   const token = ++drawToken;
   await document.fonts.load('800 80px "Baloo 2"');
-  const logo = await loadImg("logo.png");
   const skinImg = c.skin ? await loadImg(skinIcon(c.skin)) : null;
   if (token !== drawToken) return;   // bu arada yeni bir cizim istendi
 
@@ -1094,28 +1093,13 @@ async function drawShare() {
 
   // YERLESIM — bicim basina SABIT olculer. Birikimli (y += ...) hesap 4:5'te alt
   // satirlari ust uste bindiriyordu.
+  // Gorsel INGILIZCE (Instagram kitlesi) ve logosuz; sitenin kendisi Turkce.
   const L = story
-    ? { logoY: 200, logoS: 170, ribY: 400, boxY: 520, boxH: 190, skinY: 800, skinS: 480, lblY: 1320, nameY: 1392, noteY: 1462, coinY: 830, pillY: 1560, ctaY: 1735 }
-    : { logoY: 92,  logoS: 130, ribY: 238, boxY: 330, boxH: 170, skinY: 535, skinS: 330, lblY: 900,  nameY: 962,  noteY: 1022, coinY: 560, pillY: 1075, ctaY: 1245 };
+    ? { ribY: 300, boxY: 430, boxH: 190, skinY: 720, skinS: 520, lblY: 1290, nameY: 1365, noteY: 1440, coinY: 760, pillY: 1560, ctaY: 1735 }
+    : { ribY: 150, boxY: 255, boxH: 170, skinY: 470, skinS: 360, lblY: 872,  nameY: 937,  noteY: 998,  coinY: 500, pillY: 1075, ctaY: 1245 };
 
-  // ---- ust: oyun simgesi ----
-  let y = L.logoY;
-  if (logo) {
-    const s = L.logoS;
-    ctx.save();
-    roundRect(ctx, W / 2 - s / 2, y - s / 2, s, s, 40);
-    ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
-    ctx.fillStyle = "#fff"; ctx.fill();
-    ctx.shadowColor = "transparent";
-    ctx.clip();
-    ctx.drawImage(logo, W / 2 - s / 2, y - s / 2, s, s);
-    ctx.restore();
-    ctx.lineWidth = 8; ctx.strokeStyle = "#ffcb3d";
-    roundRect(ctx, W / 2 - s / 2, y - s / 2, s, s, 40); ctx.stroke();
-  }
-
-  // ---- kurdele: HAFTANIN KODU ----
-  y = L.ribY;
+  // ---- kurdele: CODE OF THE WEEK ----
+  let y = L.ribY;
   const rw = 760, rh = 124;
   ctx.fillStyle = "#b4520a";
   ctx.beginPath(); ctx.moveTo(W / 2 - rw / 2 - 60, y + 18); ctx.lineTo(W / 2 - rw / 2 + 10, y - 20); ctx.lineTo(W / 2 - rw / 2 + 10, y + 70); ctx.fill();
@@ -1125,7 +1109,7 @@ async function drawShare() {
   roundRect(ctx, W / 2 - rw / 2, y - rh / 2, rw, rh, 34);
   ctx.fillStyle = rg; ctx.fill();
   ctx.lineWidth = 7; ctx.strokeStyle = "#6e2a02"; ctx.stroke();
-  bigText(ctx, "HAFTANIN KODU", W / 2, y + 4, rw - 80, 76, "#fff", "#6e2a02", 3);
+  bigText(ctx, "CODE OF THE WEEK", W / 2, y + 4, rw - 80, 76, "#fff", "#6e2a02", 3);
 
   // ---- kod kutusu ----
   y = L.boxY;
@@ -1156,9 +1140,9 @@ async function drawShare() {
     ctx.restore();
     sparkle(ctx, W / 2 + size * 0.36, y + size * 0.14, 30, 1);
     sparkle(ctx, W / 2 - size * 0.4, y + size * 0.62, 20, 0.85);
-    bigText(ctx, "ÖZEL SKİN", W / 2, L.lblY, 700, 42, "#c9b8ec", null, 6);
-    bigText(ctx, skin ? skin.tr : "", W / 2, L.nameY, 940, story ? 88 : 76, "#fff", "#2a0f5c", 1);
-    bigText(ctx, "Kodu kaçıran bir daha alamaz!", W / 2, L.noteY, 900, 38, "#ffcb3d", null);
+    bigText(ctx, "EXCLUSIVE SKIN", W / 2, L.lblY, 700, 42, "#c9b8ec", null, 6);
+    bigText(ctx, skin ? (skin.en || skin.tr) : "", W / 2, L.nameY, 940, story ? 88 : 76, "#fff", "#2a0f5c", 1);
+    bigText(ctx, "Miss it and it's gone forever!", W / 2, L.noteY, 900, 38, "#ffcb3d", null);
   } else {
     y = L.coinY;
     const r = 120, cy = y + r;
@@ -1167,7 +1151,7 @@ async function drawShare() {
     ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(W / 2, cy, r, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 14; ctx.strokeStyle = "#b87400"; ctx.stroke();
     y += r * 2 + 70;
-    bigText(ctx, `+${c.coins} COIN`, W / 2, y, 900, 110, "#ffd24a", "#5a2800", 4);
+    bigText(ctx, `+${c.coins} COINS`, W / 2, y, 900, 110, "#ffd24a", "#5a2800", 4);
     y += 60;
   }
 
@@ -1175,7 +1159,8 @@ async function drawShare() {
   const tl = timeline(schedule.codes);
   const me = tl.find(x => x.code === c.code && x.start === c.start) || c;
   // Bitis gece yarisindaysa (00:00) son GECERLI gun bir onceki gundur: 1 dk geri al.
-  const day = ms => pretty(ms).split(" ").slice(0, 2).join(" ");
+  const EN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = ms => { const d = new Date(ms + TZ * 3600e3); return `${EN_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`; };
   const range = `${day(me.s)} – ${day(me.e - 60e3)}`;
   const pillY = L.pillY;
   const pw = 720, ph = 92;
@@ -1183,7 +1168,7 @@ async function drawShare() {
   ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.fill();
   ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.stroke();
   bigText(ctx, "⏰ " + range, W / 2, pillY + ph / 2 + 3, pw - 60, 46, "#fff", null);
-  bigText(ctx, "Oyunda: MAĞAZA › KOD GİR", W / 2, L.ctaY, 960, 56, "#ffcb3d", "#2a0f5c", 1);
+  bigText(ctx, "In game: SHOP › ENTER CODE", W / 2, L.ctaY, 960, 56, "#ffcb3d", "#2a0f5c", 1);
 }
 
 async function openShare(c) {
@@ -1204,7 +1189,7 @@ function setShareFmt(f) {
 function shareBlob() {
   return new Promise(res => $("shareCanvas").toBlob(res, "image/png"));
 }
-function shareName() { return `haftanin-kodu-${shareCode.code}-${shareFmt === "story" ? "hikaye" : "gonderi"}.png`; }
+function shareName() { return `code-of-the-week-${shareCode.code}-${shareFmt === "story" ? "story" : "post"}.png`; }
 
 async function downloadShare() {
   const blob = await shareBlob();
@@ -1218,7 +1203,7 @@ async function downloadShare() {
 
 async function nativeShare() {
   const file = new File([await shareBlob()], shareName(), { type: "image/png" });
-  const data = { files: [file], text: `Haftanın kodu: ${shareCode.code} 🥚 Oyunda Mağaza › KOD GİR` };
+  const data = { files: [file], text: `Code of the week: ${shareCode.code} 🥚 In game: Shop › Enter Code` };
   if (!navigator.canShare(data)) { downloadShare(); return; }
   try { await navigator.share(data); } catch (e) { if (e.name !== "AbortError") toast("Paylaşılamadı, İndir'i dene.", true); }
 }
