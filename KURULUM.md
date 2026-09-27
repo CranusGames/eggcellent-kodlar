@@ -88,8 +88,13 @@ Token sadece o tarayıcıda saklanır. Telefon kaybolursa: GitHub → aynı sayf
   (`şeker` → `SEKER`). **Üret** butonu rastgele kod önerir.
 - **Başlangıç:** Türkiye saati. Site, takvimdeki son kodun bittiği anı kendisi önerir.
   Kod bir sonraki kodun başlangıcına kadar (en fazla 7 gün) geçerlidir.
-- **Ödül:** küçük tut (50–150). Ara sıra **400** = bir basit skin parası. En fazla 1000
-  (sunucu fazlasını kırpar).
+- **Ödül — Özel skin (varsayılan):** galeriden bir skin seç ya da **Otomatik seç**'e bas.
+  Kodu giren herkes o skini **kalıcı** alır; skin mağazada satılmaz, kodu kaçıran bir daha
+  alamaz. Her skin **tek bir koda** verilir; verilmiş olanlar galeride "verildi: KOD" diye
+  kilitli görünür. Havuzda 30 skin var (haftada bir ≈ 7 ay).
+- **Ödül — Coin:** nadir ver, küçük tut (50–150). En fazla 1000 (sunucu fazlasını kırpar).
+- Oyuncular kodu **mağazadaki KOD GİR** alanına yazar. Ana menüdeki kart sadece kodu,
+  ödülü ve kalan süreyi gösterir.
 - Özet kutusunu oku → **Onayla ve yayınla** → çıkan pencerede **Yayınla**.
 - Henüz başlamamış bir kodu çöp kutusu simgesiyle silebilirsin. Başlamış ya da bitmiş kod
   silinemez (oyuncular kullanmış olabilir).

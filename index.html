@@ -206,6 +206,26 @@
   .btn-row .btn { flex: 1; }
   .changes { margin: 0; padding-left: 18px; }
 
+  /* ---- skin galerisi ---- */
+  .seg { margin-bottom: 12px; }
+  .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; max-height: 360px; overflow-y: auto; padding: 2px; }
+  .skin {
+    font: inherit; color: var(--text); cursor: pointer; text-align: center;
+    background: #1b0f3a; border: 2px solid #3a2672; border-radius: 14px; padding: 6px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative;
+  }
+  .skin img { width: 64px; height: 64px; object-fit: contain; }
+  .skin span { font-size: 12px; font-weight: 700; line-height: 1.15; }
+  .skin[aria-selected="true"] { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,203,61,.3); background: #2d1a5c; }
+  .skin:disabled { cursor: default; opacity: .38; }
+  .skin .used { position: absolute; top: 4px; left: 4px; right: 4px; font-size: 10px; background: #000a; border-radius: 6px; padding: 1px 3px; color: #ffd0cc; }
+  .skin:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .row .c img { width: 30px; height: 30px; vertical-align: middle; margin-right: 6px; }
+  .reward-skin { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--gold); font-size: 14px; }
+  .reward-skin img { width: 28px; height: 28px; }
+  .modal-skin { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+  .modal-skin img { width: 72px; height: 72px; }
+
   .note { color: var(--muted); font-size: 14px; }
   .note a { color: var(--blue); }
   .hidden { display: none !important; }
@@ -281,10 +301,27 @@
       <input id="startIn" type="datetime-local">
       <div class="hint" id="startHint"></div>
 
-      <label for="coinIn">Ödül <small>(coin, en fazla 1000)</small></label>
-      <input id="coinIn" type="number" inputmode="numeric" min="1" max="1000" value="75">
-      <div class="presets" id="presets"></div>
-      <div class="hint" id="coinHint"></div>
+      <label id="rewardLbl">Ödül</label>
+      <div class="tabs seg" role="radiogroup" aria-labelledby="rewardLbl">
+        <button class="tab" type="button" role="radio" id="modeSkin" aria-checked="true" aria-selected="true">Özel skin</button>
+        <button class="tab" type="button" role="radio" id="modeCoin" aria-checked="false" aria-selected="false">Coin</button>
+      </div>
+
+      <div id="skinPick">
+        <p class="note" style="margin:0 0 8px">Kodu giren herkes bu skini kalıcı alır. Mağazada satılmaz; kodu kaçıran bir daha alamaz. Her skin tek bir koda verilir.</p>
+        <div class="skin-grid" id="skinGrid" role="listbox" aria-label="Skin seç"></div>
+        <div class="inline" style="align-items:center;margin-top:8px">
+          <div class="hint" id="skinHint" style="flex:1;margin:0"></div>
+          <button class="btn ghost small" id="autoSkin" type="button">Otomatik seç</button>
+        </div>
+      </div>
+
+      <div id="coinPick" class="hidden">
+        <label for="coinIn" style="margin-top:4px">Coin <small>(en fazla 1000 — nadir ver)</small></label>
+        <input id="coinIn" type="number" inputmode="numeric" min="1" max="1000" value="75">
+        <div class="presets" id="presets"></div>
+        <div class="hint" id="coinHint"></div>
+      </div>
 
       <div class="preview" id="preview"></div>
       <button class="btn gold wide" id="addBtn" type="button">Onayla ve yayınla</button>
@@ -436,7 +473,8 @@ async function load() {
 function serialize(s) {
   const sorted = [...s.codes].sort((a, b) => toUtc(a.start) - toUtc(b.start));
   const rows = sorted.map(c => {
-    const parts = [`"code": ${JSON.stringify(c.code)}`, `"start": ${JSON.stringify(c.start)}`, `"coins": ${c.coins}`];
+    const parts = [`"code": ${JSON.stringify(c.code)}`, `"start": ${JSON.stringify(c.start)}`, `"coins": ${c.coins || 0}`];
+    if (c.skin) parts.push(`"skin": ${JSON.stringify(c.skin)}`);
     if (c.days > 0) parts.push(`"days": ${c.days}`);
     return "    { " + parts.join(", ") + " }";
   });
@@ -603,6 +641,100 @@ function showTab(which) {
   $("tabTuning").setAttribute("aria-selected", !codes);
 }
 
+// ------------------------------------------------------------------ ozel skin havuzu
+// skins/skins.json + skins/<id>.png — oyun projesindeki "Kod Skinlerini Panele Aktar"
+// araci uretir. Her skin TEK koda verilir (sunucu da ikincisini reddeder).
+let skinsList = [];
+let rewardMode = "skin";
+let selectedSkin = "";
+
+async function loadSkins() {
+  try {
+    const res = await fetch("skins/skins.json", { cache: "no-store" });
+    if (!res.ok) throw 0;
+    skinsList = (await res.json()).skins || [];
+  } catch { skinsList = []; }
+}
+const skinById = id => skinsList.find(s => s.id === id);
+const skinIcon = id => `skins/${encodeURIComponent(id)}.png`;
+
+// skin id -> onu odul olarak veren kod (takvimde, gecmis dahil)
+function usedSkins() {
+  const m = {};
+  for (const c of schedule.codes) if (c.skin) m[c.skin] = c.code;
+  return m;
+}
+
+function renderSkins() {
+  const grid = $("skinGrid");
+  grid.innerHTML = "";
+  const used = usedSkins();
+  if (selectedSkin && used[selectedSkin]) selectedSkin = "";
+
+  if (!skinsList.length) {
+    const p = document.createElement("p"); p.className = "note";
+    p.textContent = "Skin listesi yüklenemedi (skins/skins.json).";
+    grid.append(p);
+  }
+  for (const s of skinsList) {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "skin"; btn.setAttribute("role", "option");
+    btn.setAttribute("aria-selected", s.id === selectedSkin);
+    const img = document.createElement("img"); img.src = skinIcon(s.id); img.alt = ""; img.loading = "lazy";
+    const name = document.createElement("span"); name.textContent = s.tr;
+    btn.append(img, name);
+    if (used[s.id]) {
+      btn.disabled = true;
+      const u = document.createElement("div"); u.className = "used"; u.textContent = "verildi: " + used[s.id];
+      btn.append(u);
+      btn.title = s.tr + " — " + used[s.id] + " koduyla verildi";
+    } else {
+      btn.title = s.tr;
+      btn.onclick = () => { selectedSkin = s.id; renderSkins(); updateForm(); };
+    }
+    grid.append(btn);
+  }
+  const free = skinsList.filter(s => !used[s.id]).length;
+  hint("skinHint", `${free} / ${skinsList.length} skin verilmedi`, free === 0);
+}
+
+function autoSkin() {
+  const used = usedSkins();
+  const free = skinsList.filter(s => !used[s.id]);
+  if (!free.length) { toast("Havuzda verilmemiş skin kalmadı.", true); return; }
+  selectedSkin = free[Math.floor(Math.random() * free.length)].id;
+  renderSkins();
+  updateForm();
+  const el = $("skinGrid").querySelector('[aria-selected="true"]');
+  if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function setRewardMode(mode) {
+  rewardMode = mode;
+  const skin = mode === "skin";
+  $("skinPick").classList.toggle("hidden", !skin);
+  $("coinPick").classList.toggle("hidden", skin);
+  for (const [id, on] of [["modeSkin", skin], ["modeCoin", !skin]]) {
+    $(id).setAttribute("aria-checked", on);
+    $(id).setAttribute("aria-selected", on);
+  }
+  updateForm();
+}
+
+// Odulun okunur hali (onizleme / onay / liste)
+function rewardNodes(c) {
+  const s = c.skin ? skinById(c.skin) : null;
+  if (c.skin) {
+    const w = document.createElement("span"); w.className = "reward-skin";
+    const img = document.createElement("img"); img.src = skinIcon(c.skin); img.alt = "";
+    w.append(img, s ? s.tr : c.skin);
+    if (c.coins > 0) w.append(" +" + c.coins);
+    return w;
+  }
+  const coin = document.createElement("span"); coin.className = "coin"; coin.innerHTML = "<i></i>"; coin.append(String(c.coins));
+  return coin;
+}
+
 // ------------------------------------------------------------------ dogrulama
 function cleanCode(v) {
   return (v || "").toUpperCase()
@@ -627,11 +759,18 @@ function validate() {
   else if (tl.some(c => c.s === s)) errs.start = "Bu saatte başlayan başka bir kod var.";
   else if (s < Date.now() - 5 * 60e3) errs.start = "Geçmiş bir zaman. Hemen başlasın istiyorsan şu anki saati seç.";
 
-  if (!Number.isInteger(coins) || coins < 1) errs.coins = "1 ile 1000 arası bir sayı.";
-  else if (coins > MAX_COINS) errs.coins = "En fazla 1000 (sunucu fazlasını kırpar).";
+  let skin = "";
+  if (rewardMode === "skin") {
+    skin = selectedSkin;
+    if (!skin) errs.skin = "";                       // secilmedi: yazisiz hata
+    else if (usedSkins()[skin]) errs.skin = "Bu skin zaten verildi.";
+  } else {
+    if (!Number.isInteger(coins) || coins < 1) errs.coins = "1 ile 1000 arası bir sayı.";
+    else if (coins > MAX_COINS) errs.coins = "En fazla 1000 (sunucu fazlasını kırpar).";
+  }
 
   // errs.code === "" de hata sayilir (Object.keys onu da sayar) — sadece yazisi yok.
-  return { code, startStr, s, coins, errs, ok: Object.keys(errs).length === 0 };
+  return { code, startStr, s, coins: rewardMode === "skin" ? 0 : coins, skin, errs, ok: Object.keys(errs).length === 0 };
 }
 
 function hint(id, text, err) {
@@ -649,11 +788,11 @@ function updateForm() {
   const pv = $("preview");
   if (v.ok) {
     // Yeni kod eklenince bitisi nereye duser? Sunucuyla ayni hesap.
-    const tl = timeline([...schedule.codes, { code: v.code, start: v.startStr, coins: v.coins }]);
+    const tl = timeline([...schedule.codes, { code: v.code, start: v.startStr, coins: v.coins, skin: v.skin }]);
     const me = tl.find(c => c.code === v.code && c.s === v.s);
     pv.innerHTML = "";
     pv.append("Oyuncular ", b(v.code), " kodunu ", b(pretty(me.s)), " – ", b(pretty(me.e)),
-              " arasında kullanabilir, her biri ", b(v.coins + " coin"), " alır.");
+              " arasında mağazadaki KOD GİR'e yazıp alabilir: ", rewardNodes(v));
   } else {
     pv.textContent = "Bilgileri doldurunca burada özet görünür.";
   }
@@ -677,9 +816,8 @@ function renderHero() {
   if (active) {
     const code = document.createElement("div"); code.className = "code"; code.textContent = active.code;
     const meta = document.createElement("div"); meta.className = "meta";
-    const coin = document.createElement("span"); coin.className = "coin"; coin.innerHTML = "<i></i>"; coin.append("+" + active.coins);
     const t = document.createElement("span"); t.textContent = "Bitiş: " + left(active.e - now);
-    meta.append(coin, t);
+    meta.append(rewardNodes(active), t);
     hero.append(code, meta);
   } else {
     const e = document.createElement("div"); e.className = "empty";
@@ -705,7 +843,7 @@ function renderList() {
     const code = document.createElement("div"); code.className = "c"; code.textContent = c.code;
     const d = document.createElement("div"); d.className = "d"; d.textContent = `${pretty(c.s)} → ${pretty(c.e)}`;
     const r = document.createElement("div"); r.className = "r";
-    const coin = document.createElement("span"); coin.className = "coin"; coin.innerHTML = "<i></i>"; coin.append(String(c.coins));
+    const coin = rewardNodes(c);
     const chip = document.createElement("span");
     chip.className = "chip " + (state === "active" ? "on" : state === "next" ? "next" : "");
     chip.textContent = state === "active" ? "AKTİF" : state === "next" ? "SIRADA" : "BİTTİ";
@@ -769,19 +907,35 @@ async function addCode() {
   const v = validate();
   if (!v.ok) return;
   const p = document.createElement("p");
-  p.append("Kod ", b(v.code), ", ", b(pretty(v.s)), " itibarıyla oyunda görünecek ve ", b(v.coins + " coin"), " verecek.");
+  p.append("Kod ", b(v.code), ", ", b(pretty(v.s)), " itibarıyla oyunda görünecek.");
+  const rw = document.createElement("div"); rw.className = "modal-skin";
+  if (v.skin) {
+    const img = document.createElement("img"); img.src = skinIcon(v.skin); img.alt = "";
+    const s = skinById(v.skin);
+    const t = document.createElement("div");
+    t.append(b(s ? s.tr : v.skin), document.createElement("br"), "Özel skin — kodu kaçıran bir daha alamaz.");
+    rw.append(img, t);
+  } else {
+    rw.append(rewardNodes(v));
+  }
   const q = document.createElement("p"); q.className = "note"; q.textContent = "Yayınlandıktan sonra oyuncular alırsa geri alınamaz.";
-  if (!await confirmBox("Yayınlansın mı?", [p, q], "Yayınla")) return;
+  if (!await confirmBox("Yayınlansın mı?", [p, rw, q], "Yayınla")) return;
 
   await busy($("addBtn"), async () => {
     try {
       await load();   // en guncel surumun uzerine ekle
-      await save([...schedule.codes, { code: v.code, start: v.startStr, coins: v.coins }], `Haftanın kodu: ${v.code} (${v.startStr}, ${v.coins} coin)`);
+      if (v.skin && usedSkins()[v.skin]) throw new Error("Bu skin bu arada başka bir koda verilmiş. Başka skin seç.");
+      const entry = { code: v.code, start: v.startStr, coins: v.coins };
+      if (v.skin) entry.skin = v.skin;
+      const what = v.skin ? `skin: ${(skinById(v.skin) || {}).tr || v.skin}` : `${v.coins} coin`;
+      await save([...schedule.codes, entry], `Haftanın kodu: ${v.code} (${v.startStr}, ${what})`);
       toast("Yayınlandı! Sunucu ~2 dakikada alır.");
       $("codeIn").value = "";
       $("coinIn").value = 75;   // buyuk odul yanlislikla ust uste verilmesin
+      selectedSkin = "";
       suggestStart();
       render();
+      renderSkins();
     } catch (e) { toast(e.message, true); }
   });
 }
@@ -794,9 +948,10 @@ async function removeCode(c) {
     await load();
     const rest = schedule.codes.filter(x => !(x.code === c.code && x.start === c.start));
     await save(rest, `Haftanın kodu silindi: ${c.code}`);
-    toast(c.code + " silindi.");
+    toast(c.code + " silindi." + (c.skin ? " Skini yeniden verilebilir." : ""));
     suggestStart();
     render();
+    renderSkins();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -846,6 +1001,7 @@ async function connect() {
     if (info.permissions && !info.permissions.push) throw new Error("Token repoyu görüyor ama YAZMA izni yok.");
     await load();
     await loadTuning();
+    await loadSkins();
     store.set("wc_repo", repo); store.set("wc_token", token);
     showApp();
   } catch (e) {
@@ -867,6 +1023,8 @@ function showApp() {
   $("setupCard").classList.add("hidden");
   $("app").classList.remove("hidden");
   $("logoutBtn").classList.remove("hidden");
+  renderSkins();
+  setRewardMode(rewardMode);
   suggestStart();
   render();
   renderTuning();
@@ -896,6 +1054,9 @@ function init() {
   $("tabTuning").onclick = () => showTab("tuning");
   $("tuneResetAll").onclick = () => { tuningDraft = defaultTuning(); renderTuning(); };
   $("tuneSave").onclick = saveTuning;
+  $("modeSkin").onclick = () => setRewardMode("skin");
+  $("modeCoin").onclick = () => setRewardMode("coin");
+  $("autoSkin").onclick = autoSkin;
   $("logoutBtn").onclick = () => { store.del("wc_token"); token = ""; showSetup(); };
   document.addEventListener("keydown", e => { if (e.key === "Escape" && $("modal").classList.contains("show")) $("mCancel").click(); });
   setInterval(() => {
@@ -909,7 +1070,7 @@ function init() {
 
   repo = store.get("wc_repo"); token = store.get("wc_token");
   if (!repo || !token) { showSetup(); return; }
-  load().then(loadTuning).then(showApp).catch(e => { showSetup(); hint("setupErr", e.message, true); });
+  Promise.all([load(), loadSkins()]).then(loadTuning).then(showApp).catch(e => { showSetup(); hint("setupErr", e.message, true); });
 }
 
 init();

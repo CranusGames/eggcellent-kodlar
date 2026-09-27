@@ -1,0 +1,154 @@
+{
+    "skins": [
+        {
+            "id": "kodskin_buz_24a211",
+            "tr": "Buzul Kalbi",
+            "en": "Glacier Heart"
+        },
+        {
+            "id": "kodskin_buz_54ca5a",
+            "tr": "Kutup Işığı",
+            "en": "Polar Light"
+        },
+        {
+            "id": "kodskin_ejderpulu_3f0add",
+            "tr": "Orman Ejderi",
+            "en": "Forest Dragon"
+        },
+        {
+            "id": "kodskin_ejderpulu_5d2d92",
+            "tr": "Gece Ejderi",
+            "en": "Night Dragon"
+        },
+        {
+            "id": "kodskin_ejderpulu_af83fb",
+            "tr": "Ateş Ejderi",
+            "en": "Fire Dragon"
+        },
+        {
+            "id": "kodskin_galaksi_15e79b",
+            "tr": "Pembe Bulutsu",
+            "en": "Pink Nebula"
+        },
+        {
+            "id": "kodskin_galaksi_cc90a3",
+            "tr": "Okyanus Rüyası",
+            "en": "Ocean Dream"
+        },
+        {
+            "id": "kodskin_galaksi_f1235f",
+            "tr": "Gölge Girdabı",
+            "en": "Shadow Swirl"
+        },
+        {
+            "id": "kodskin_holografik_5cbec7",
+            "tr": "Gökkuşağı Sedefi",
+            "en": "Rainbow Pearl"
+        },
+        {
+            "id": "kodskin_kristal_098e10",
+            "tr": "Deniz Camı",
+            "en": "Sea Glass"
+        },
+        {
+            "id": "kodskin_kristal_123c5d",
+            "tr": "Güneş Taşı",
+            "en": "Sunstone"
+        },
+        {
+            "id": "kodskin_kristal_322ebe",
+            "tr": "Yakut Parçası",
+            "en": "Ruby Shard"
+        },
+        {
+            "id": "kodskin_kristal_8c05dd",
+            "tr": "Mor Mücevher",
+            "en": "Violet Gem"
+        },
+        {
+            "id": "kodskin_lav_38217b",
+            "tr": "Volkan Çekirdeği",
+            "en": "Volcano Core"
+        },
+        {
+            "id": "kodskin_lav_637de0",
+            "tr": "Altın Magma",
+            "en": "Golden Magma"
+        },
+        {
+            "id": "kodskin_lav_c0df60",
+            "tr": "Buz Ateşi",
+            "en": "Frost Fire"
+        },
+        {
+            "id": "kodskin_mermer_3c4fb0",
+            "tr": "Kara Altın",
+            "en": "Black Gold"
+        },
+        {
+            "id": "kodskin_mermer_78c8de",
+            "tr": "Gece Damarı",
+            "en": "Midnight Vein"
+        },
+        {
+            "id": "kodskin_mermer_9087c6",
+            "tr": "Yeşim Damarı",
+            "en": "Jade Vein"
+        },
+        {
+            "id": "kodskin_metaloyma_4b6393",
+            "tr": "Bakır Tılsım",
+            "en": "Copper Charm"
+        },
+        {
+            "id": "kodskin_metaloyma_66ac44",
+            "tr": "Firavun Hazinesi",
+            "en": "Pharaoh's Treasure"
+        },
+        {
+            "id": "kodskin_metaloyma_bd04df",
+            "tr": "Demir Şövalye",
+            "en": "Iron Knight"
+        },
+        {
+            "id": "kodskin_neondevre_0c34d5",
+            "tr": "Siber Okyanus",
+            "en": "Cyber Ocean"
+        },
+        {
+            "id": "kodskin_neondevre_8f1471",
+            "tr": "Şimşek Devresi",
+            "en": "Thunder Circuit"
+        },
+        {
+            "id": "kodskin_neondevre_a2e042",
+            "tr": "Kırmızı Alarm",
+            "en": "Red Alert"
+        },
+        {
+            "id": "kodskin_paskalya_2c95e8",
+            "tr": "Festival Yumurtası",
+            "en": "Festival Egg"
+        },
+        {
+            "id": "kodskin_paskalya_4f8ab4",
+            "tr": "Mor Zikzak",
+            "en": "Purple Zigzag"
+        },
+        {
+            "id": "kodskin_paskalya_ef424e",
+            "tr": "Karnaval",
+            "en": "Carnival"
+        },
+        {
+            "id": "kodskin_zehirlibalcik_6a9427",
+            "tr": "Zehirli Balçık",
+            "en": "Toxic Slime"
+        },
+        {
+            "id": "kodskin_zehirlibalcik_84b491",
+            "tr": "Mavi Balçık",
+            "en": "Blue Slime"
+        }
+    ]
+}
