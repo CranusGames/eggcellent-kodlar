@@ -96,8 +96,16 @@ Token sadece o tarayıcıda saklanır. Telefon kaybolursa: GitHub → aynı sayf
 - Oyuncular kodu **mağazadaki KOD GİR** alanına yazar. Ana menüdeki kart sadece kodu,
   ödülü ve kalan süreyi gösterir.
 - Özet kutusunu oku → **Onayla ve yayınla** → çıkan pencerede **Yayınla**.
-- Henüz başlamamış bir kodu çöp kutusu simgesiyle silebilirsin. Başlamış ya da bitmiş kod
-  silinemez (oyuncular kullanmış olabilir).
+- Henüz başlamamış bir kodu çöp kutusu simgesiyle silebilirsin.
+- **Aktif kodu iptal et:** takvimde aktif kodun yanındaki **İptal et** kodu o anda bitirir.
+  Kodu zaten kullananlar ödülünü korur; kod takvimde "İPTAL" olarak kalır ve skini
+  "verildi" sayılır (başka koda verilemez — alanlar için özel kalsın diye).
+
+**Instagram görseli:** takvimde her geçerli kodun yanındaki kamera simgesi paylaşım
+görselini açar. **Gönderi 4:5** (1080×1350) ya da **Hikaye 9:16** (1080×1920) seç.
+Telefonda **Paylaş** → Instagram'a doğrudan gider; bilgisayarda **İndir** ile PNG kaydet.
+Görselde: oyun simgesi, HAFTANIN KODU, kod, ödül (skin resmi + adı ya da coin), geçerlilik
+tarihleri ve "Oyunda: MAĞAZA › KOD GİR".
 
 **Birkaç haftayı önceden girmek serbest.** Sunucu sırası gelince kendisi geçer.
 

@@ -112,7 +112,7 @@
   .row.past { opacity: .55; }
   .row .c { font-weight: 800; font-size: 20px; letter-spacing: 2px; }
   .row .d { grid-column: 1 / 2; color: var(--muted); font-size: 14px; }
-  .row .r { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: center; gap: 8px; }
+  .row .r { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; max-width: 260px; }
   .chip {
     font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 999px;
     background: #3a2672; color: var(--muted); white-space: nowrap;
@@ -225,6 +225,11 @@
   .reward-skin img { width: 28px; height: 28px; }
   .modal-skin { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
   .modal-skin img { width: 72px; height: 72px; }
+
+  /* ---- paylasim gorseli ---- */
+  .modal .card.share-card { max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .share-preview { background: #0d0620; border-radius: 14px; padding: 8px; display: grid; place-items: center; }
+  .share-preview canvas { width: auto; height: auto; max-width: 100%; max-height: 58vh; border-radius: 10px; }
 
   .note { color: var(--muted); font-size: 14px; }
   .note a { color: var(--blue); }
@@ -349,6 +354,22 @@
     </div>
   </div>
 </div>
+<div class="modal" id="shareModal" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="card share-card">
+    <h2 id="shTitle">Paylaşım görseli</h2>
+    <div class="tabs seg" role="radiogroup" aria-label="Biçim">
+      <button class="tab" type="button" role="radio" id="fmtPost" aria-checked="true" aria-selected="true">Gönderi 4:5</button>
+      <button class="tab" type="button" role="radio" id="fmtStory" aria-checked="false" aria-selected="false">Hikaye 9:16</button>
+    </div>
+    <div class="share-preview"><canvas id="shareCanvas" width="1080" height="1350" aria-label="Paylaşım görseli önizlemesi"></canvas></div>
+    <div class="actions">
+      <button class="btn ghost" id="shClose" type="button">Kapat</button>
+      <button class="btn" id="shDownload" type="button">İndir</button>
+      <button class="btn gold hidden" id="shShare" type="button">Paylaş</button>
+    </div>
+    <p class="note" style="margin-bottom:0">Telefonda <b>Paylaş</b> → Instagram. Bilgisayarda <b>İndir</b>, sonra Instagram'a yükle.</p>
+  </div>
+</div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -416,6 +437,10 @@ function timeline(codes) {
     const byDays = c.s + (c.days > 0 ? c.days : DEFAULT_DAYS) * 86400e3;
     const byNext = k + 1 < list.length ? list[k + 1].s : Infinity;
     c.e = Math.min(byDays, byNext);
+    // Iptal edilmis kod: elle yazilan bitis daha erkense o gecerli.
+    const byEnd = toUtc(c.end);
+    c.cancelled = !isNaN(byEnd) && byEnd < c.e;
+    if (c.cancelled) c.e = byEnd;
   });
   return list;
 }
@@ -476,6 +501,7 @@ function serialize(s) {
     const parts = [`"code": ${JSON.stringify(c.code)}`, `"start": ${JSON.stringify(c.start)}`, `"coins": ${c.coins || 0}`];
     if (c.skin) parts.push(`"skin": ${JSON.stringify(c.skin)}`);
     if (c.days > 0) parts.push(`"days": ${c.days}`);
+    if (c.end) parts.push(`"end": ${JSON.stringify(c.end)}`);
     return "    { " + parts.join(", ") + " }";
   });
   return `{\n  "timezoneOffsetHours": ${s.timezoneOffsetHours},\n  "codes": [\n${rows.join(",\n")}\n  ]\n}\n`;
@@ -846,8 +872,22 @@ function renderList() {
     const coin = rewardNodes(c);
     const chip = document.createElement("span");
     chip.className = "chip " + (state === "active" ? "on" : state === "next" ? "next" : "");
-    chip.textContent = state === "active" ? "AKTİF" : state === "next" ? "SIRADA" : "BİTTİ";
+    chip.textContent = state === "active" ? "AKTİF" : state === "next" ? "SIRADA" : c.cancelled ? "İPTAL" : "BİTTİ";
     r.append(coin, chip);
+    if (state !== "past") {
+      const img = document.createElement("button");
+      img.className = "icon-btn"; img.type = "button"; img.title = c.code + " için paylaşım görseli";
+      img.setAttribute("aria-label", c.code + " için paylaşım görseli");
+      img.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>';
+      img.onclick = () => openShare(c);
+      r.append(img);
+    }
+    if (state === "active") {
+      const cancel = document.createElement("button");
+      cancel.className = "btn danger small"; cancel.type = "button"; cancel.textContent = "İptal et";
+      cancel.onclick = () => cancelCode(c);
+      r.append(cancel);
+    }
     if (state === "next") {
       const del = document.createElement("button");
       del.className = "icon-btn"; del.type = "button"; del.title = c.code + " kodunu sil";
@@ -949,6 +989,255 @@ async function removeCode(c) {
     const rest = schedule.codes.filter(x => !(x.code === c.code && x.start === c.start));
     await save(rest, `Haftanın kodu silindi: ${c.code}`);
     toast(c.code + " silindi." + (c.skin ? " Skini yeniden verilebilir." : ""));
+    suggestStart();
+    render();
+    renderSkins();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ------------------------------------------------------------------ paylasim gorseli
+// Instagram icin 1080x1350 (gonderi) ya da 1080x1920 (hikaye) PNG. Tamamen tarayicida
+// cizilir (canvas); gorseller ayni siteden geldigi icin disa aktarma engellenmez.
+let shareCode = null, shareFmt = "post";
+const imgCache = {};
+function loadImg(src) {
+  if (!imgCache[src]) imgCache[src] = new Promise(res => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+  return imgCache[src];
+}
+
+// Koda gore hep ayni yildiz dizilimi (her acilista zıplamasin)
+function seeded(str) {
+  let h = 2166136261;
+  for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Metni verilen genislige sigdir; kalin kontur + dolgu (oyundaki yazi stili)
+function bigText(ctx, text, cx, cy, maxW, size, fill, stroke, spacing = 0) {
+  let s = size;
+  ctx.font = `800 ${s}px "Baloo 2", sans-serif`;
+  if ("letterSpacing" in ctx) ctx.letterSpacing = spacing + "px";
+  while (ctx.measureText(text).width > maxW && s > 20) { s -= 4; ctx.font = `800 ${s}px "Baloo 2", sans-serif`; }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  if (stroke) { ctx.lineJoin = "round"; ctx.lineWidth = Math.max(6, s * 0.14); ctx.strokeStyle = stroke; ctx.strokeText(text, cx, cy); }
+  ctx.fillStyle = fill; ctx.fillText(text, cx, cy);
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  return s;
+}
+
+function sparkle(ctx, x, y, r, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#fff6c8";
+  ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.quadraticCurveTo(x, y, x, y + r); ctx.quadraticCurveTo(x, y, x - r, y);
+  ctx.quadraticCurveTo(x, y, x, y - r);
+  ctx.fill();
+  ctx.restore();
+}
+
+let drawToken = 0;
+async function drawShare() {
+  const c = shareCode;
+  const fmt = shareFmt;
+
+  // TUM YUKLEMELER ONCE, cizim sonra ve kesintisiz. Cizim ortasinda await olunca
+  // hizli tiklamada (bicim degistir / baska kod ac) iki cizim ayni tuvale karisiyordu.
+  const token = ++drawToken;
+  await document.fonts.load('800 80px "Baloo 2"');
+  const logo = await loadImg("logo.png");
+  const skinImg = c.skin ? await loadImg(skinIcon(c.skin)) : null;
+  if (token !== drawToken) return;   // bu arada yeni bir cizim istendi
+
+  const cv = $("shareCanvas");
+  const W = 1080, H = fmt === "story" ? 1920 : 1350;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  const rnd = seeded(c.code);
+  const story = fmt === "story";
+
+  // ---- arka plan: gece moru + isik + yildizlar + tepeler ----
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#3b1784"); bg.addColorStop(0.55, "#1d0b45"); bg.addColorStop(1, "#0e0526");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  for (const [gx, gy, gr, col] of [[W * 0.85, H * 0.08, 520, "rgba(255,138,31,.28)"], [W * 0.1, H * 0.6, 600, "rgba(120,60,255,.30)"]]) {
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    g.addColorStop(0, col); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  for (let i = 0; i < 90; i++) {
+    ctx.globalAlpha = 0.25 + rnd() * 0.6;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(rnd() * W, rnd() * H * 0.75, 1 + rnd() * 2.6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#170836";
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 40) ctx.lineTo(x, H - 110 - Math.sin(x / 170) * 40 - Math.sin(x / 63) * 12);
+  ctx.lineTo(W, H); ctx.fill();
+
+  // YERLESIM — bicim basina SABIT olculer. Birikimli (y += ...) hesap 4:5'te alt
+  // satirlari ust uste bindiriyordu.
+  const L = story
+    ? { logoY: 200, logoS: 170, ribY: 400, boxY: 520, boxH: 190, skinY: 800, skinS: 480, lblY: 1320, nameY: 1392, noteY: 1462, coinY: 830, pillY: 1560, ctaY: 1735 }
+    : { logoY: 92,  logoS: 130, ribY: 238, boxY: 330, boxH: 170, skinY: 535, skinS: 330, lblY: 900,  nameY: 962,  noteY: 1022, coinY: 560, pillY: 1075, ctaY: 1245 };
+
+  // ---- ust: oyun simgesi ----
+  let y = L.logoY;
+  if (logo) {
+    const s = L.logoS;
+    ctx.save();
+    roundRect(ctx, W / 2 - s / 2, y - s / 2, s, s, 40);
+    ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 10;
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.clip();
+    ctx.drawImage(logo, W / 2 - s / 2, y - s / 2, s, s);
+    ctx.restore();
+    ctx.lineWidth = 8; ctx.strokeStyle = "#ffcb3d";
+    roundRect(ctx, W / 2 - s / 2, y - s / 2, s, s, 40); ctx.stroke();
+  }
+
+  // ---- kurdele: HAFTANIN KODU ----
+  y = L.ribY;
+  const rw = 760, rh = 124;
+  ctx.fillStyle = "#b4520a";
+  ctx.beginPath(); ctx.moveTo(W / 2 - rw / 2 - 60, y + 18); ctx.lineTo(W / 2 - rw / 2 + 10, y - 20); ctx.lineTo(W / 2 - rw / 2 + 10, y + 70); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(W / 2 + rw / 2 + 60, y + 18); ctx.lineTo(W / 2 + rw / 2 - 10, y - 20); ctx.lineTo(W / 2 + rw / 2 - 10, y + 70); ctx.fill();
+  const rg = ctx.createLinearGradient(0, y - rh / 2, 0, y + rh / 2);
+  rg.addColorStop(0, "#ffb24d"); rg.addColorStop(1, "#ff7a10");
+  roundRect(ctx, W / 2 - rw / 2, y - rh / 2, rw, rh, 34);
+  ctx.fillStyle = rg; ctx.fill();
+  ctx.lineWidth = 7; ctx.strokeStyle = "#6e2a02"; ctx.stroke();
+  bigText(ctx, "HAFTANIN KODU", W / 2, y + 4, rw - 80, 76, "#fff", "#6e2a02", 3);
+
+  // ---- kod kutusu ----
+  y = L.boxY;
+  const bw = 900, bh = L.boxH;
+  ctx.save();
+  ctx.shadowColor = "rgba(255,203,61,.55)"; ctx.shadowBlur = 50;
+  roundRect(ctx, W / 2 - bw / 2, y, bw, bh, 36);
+  ctx.fillStyle = "#1b0c3e"; ctx.fill();
+  ctx.restore();
+  ctx.lineWidth = 8; ctx.strokeStyle = "#ffcb3d";
+  roundRect(ctx, W / 2 - bw / 2, y, bw, bh, 36); ctx.stroke();
+  bigText(ctx, c.code, W / 2, y + bh / 2 + 6, bw - 90, 130, "#ffd24a", "#5a2800", 10);
+  sparkle(ctx, W / 2 + bw / 2 - 20, y + 10, 34, 0.95);
+  sparkle(ctx, W / 2 - bw / 2 + 30, y + bh - 8, 24, 0.8);
+
+  // ---- odul ----
+  const skin = c.skin ? skinById(c.skin) : null;
+  if (skinImg) {
+    y = L.skinY;
+    const size = L.skinS;
+    const cy = y + size / 2;
+    const glow = ctx.createRadialGradient(W / 2, cy, 0, W / 2, cy, size * 0.75);
+    glow.addColorStop(0, "rgba(255,210,90,.55)"); glow.addColorStop(1, "rgba(255,210,90,0)");
+    ctx.fillStyle = glow; ctx.fillRect(0, cy - size, W, size * 2);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 18;
+    ctx.drawImage(skinImg, W / 2 - size / 2, y, size, size);
+    ctx.restore();
+    sparkle(ctx, W / 2 + size * 0.36, y + size * 0.14, 30, 1);
+    sparkle(ctx, W / 2 - size * 0.4, y + size * 0.62, 20, 0.85);
+    bigText(ctx, "ÖZEL SKİN", W / 2, L.lblY, 700, 42, "#c9b8ec", null, 6);
+    bigText(ctx, skin ? skin.tr : "", W / 2, L.nameY, 940, story ? 88 : 76, "#fff", "#2a0f5c", 1);
+    bigText(ctx, "Kodu kaçıran bir daha alamaz!", W / 2, L.noteY, 900, 38, "#ffcb3d", null);
+  } else {
+    y = L.coinY;
+    const r = 120, cy = y + r;
+    const cg = ctx.createRadialGradient(W / 2 - 40, cy - 40, 10, W / 2, cy, r);
+    cg.addColorStop(0, "#fff3b0"); cg.addColorStop(0.5, "#ffc93c"); cg.addColorStop(1, "#d98e00");
+    ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(W / 2, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 14; ctx.strokeStyle = "#b87400"; ctx.stroke();
+    y += r * 2 + 70;
+    bigText(ctx, `+${c.coins} COIN`, W / 2, y, 900, 110, "#ffd24a", "#5a2800", 4);
+    y += 60;
+  }
+
+  // ---- gecerlilik + nasil kullanilir ----
+  const tl = timeline(schedule.codes);
+  const me = tl.find(x => x.code === c.code && x.start === c.start) || c;
+  // Bitis gece yarisindaysa (00:00) son GECERLI gun bir onceki gundur: 1 dk geri al.
+  const day = ms => pretty(ms).split(" ").slice(0, 2).join(" ");
+  const range = `${day(me.s)} – ${day(me.e - 60e3)}`;
+  const pillY = L.pillY;
+  const pw = 720, ph = 92;
+  roundRect(ctx, W / 2 - pw / 2, pillY, pw, ph, 46);
+  ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.stroke();
+  bigText(ctx, "⏰ " + range, W / 2, pillY + ph / 2 + 3, pw - 60, 46, "#fff", null);
+  bigText(ctx, "Oyunda: MAĞAZA › KOD GİR", W / 2, L.ctaY, 960, 56, "#ffcb3d", "#2a0f5c", 1);
+}
+
+async function openShare(c) {
+  shareCode = c;
+  $("shareModal").classList.add("show");
+  $("shShare").classList.toggle("hidden", !(navigator.canShare && navigator.share));
+  await drawShare();
+}
+
+function setShareFmt(f) {
+  shareFmt = f;
+  for (const [id, on] of [["fmtPost", f === "post"], ["fmtStory", f === "story"]]) {
+    $(id).setAttribute("aria-checked", on); $(id).setAttribute("aria-selected", on);
+  }
+  drawShare();
+}
+
+function shareBlob() {
+  return new Promise(res => $("shareCanvas").toBlob(res, "image/png"));
+}
+function shareName() { return `haftanin-kodu-${shareCode.code}-${shareFmt === "story" ? "hikaye" : "gonderi"}.png`; }
+
+async function downloadShare() {
+  const blob = await shareBlob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = shareName();
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast("Görsel indirildi.");
+}
+
+async function nativeShare() {
+  const file = new File([await shareBlob()], shareName(), { type: "image/png" });
+  const data = { files: [file], text: `Haftanın kodu: ${shareCode.code} 🥚 Oyunda Mağaza › KOD GİR` };
+  if (!navigator.canShare(data)) { downloadShare(); return; }
+  try { await navigator.share(data); } catch (e) { if (e.name !== "AbortError") toast("Paylaşılamadı, İndir'i dene.", true); }
+}
+
+// AKTIF kodu simdi bitir. Kod SILINMEZ: silinseydi odul skini "verilmemis" gorunup
+// baska koda verilebilirdi — alanlar skini alanlar icin ozel kalmali.
+async function cancelCode(c) {
+  const p = document.createElement("p");
+  p.append(b(c.code), " şu an bitirilsin mi?");
+  const q = document.createElement("p"); q.className = "note";
+  q.textContent = "Kodu zaten kullanan oyuncular ödüllerini KORUR. Kod takvimde 'İPTAL' olarak kalır" +
+                  (c.skin ? ", skini de verilmiş sayılır (başka koda verilemez)." : ".");
+  if (!await confirmBox("Kodu iptal et", [p, q], "İptal et", true)) return;
+  try {
+    await load();
+    const nowStr = fromUtc(Date.now());
+    const codes = schedule.codes.map(x => (x.code === c.code && x.start === c.start) ? { ...x, end: nowStr } : x);
+    await save(codes, `Haftanın kodu iptal edildi: ${c.code} (${nowStr})`);
+    toast(c.code + " iptal edildi. Sunucu ~2 dakikada uygular.");
     suggestStart();
     render();
     renderSkins();
@@ -1057,8 +1346,18 @@ function init() {
   $("modeSkin").onclick = () => setRewardMode("skin");
   $("modeCoin").onclick = () => setRewardMode("coin");
   $("autoSkin").onclick = autoSkin;
+  $("fmtPost").onclick = () => setShareFmt("post");
+  $("fmtStory").onclick = () => setShareFmt("story");
+  $("shDownload").onclick = downloadShare;
+  $("shShare").onclick = nativeShare;
+  $("shClose").onclick = () => $("shareModal").classList.remove("show");
+  $("shareModal").onclick = e => { if (e.target === $("shareModal")) $("shareModal").classList.remove("show"); };
   $("logoutBtn").onclick = () => { store.del("wc_token"); token = ""; showSetup(); };
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("modal").classList.contains("show")) $("mCancel").click(); });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if ($("modal").classList.contains("show")) $("mCancel").click();
+    else $("shareModal").classList.remove("show");
+  });
   setInterval(() => {
     if ($("app").classList.contains("hidden")) return;
     renderHero();
