@@ -1,0 +1,14 @@
+{
+  "openWorld": {
+    "move": 1.00,
+    "jump": 1.00,
+    "dash": 1.00,
+    "damage": 1.00,
+    "health": 1.00,
+    "enemyDamage": 1.00
+  },
+  "match": {
+    "move": 1.00,
+    "jump": 1.00
+  }
+}

@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Haftanın Kodu Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<!--
+  EGGCELLENT — HAFTANIN KODU PANELI (GitHub Pages)
+
+  Bu sayfa SADECE bu repodaki weekly_codes.json dosyasini duzenler (GitHub API).
+  Oyun sunucusu o dosyayi birkac dakikada bir kendisi indirir; sayfa sunucuya
+  hic baglanmaz. Sayfada GIZLI BILGI YOK: yetki, kullanicinin kendi tarayicisina
+  girdigi GitHub token'i ile saglanir (sadece o cihazin localStorage'inda durur).
+
+  Kurallar sunucuyla AYNI (WeeklyCodeServer.cs): kod A-Z/0-9, 3-20 karakter;
+  coin 1-1000; baslangic Turkiye saati "yyyy-AA-gg SS:dd"; kod bir sonraki kodun
+  baslangicina kadar (en fazla "days" gun, varsayilan 7) gecerli.
+-->
+<style>
+  :root {
+    --bg: #150c2e;
+    --bg2: #24124a;
+    --card: #2b1a55;
+    --card-hi: #3a2470;
+    --line: #4d3490;
+    --text: #fff6e8;
+    --muted: #c9b8ec;
+    --orange: #ff8a1f;
+    --orange-dk: #b4520a;
+    --gold: #ffcb3d;
+    --green: #3fd07a;
+    --red: #ff5d52;
+    --blue: #5cc8ff;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #4a2296 0%, transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, #3b1470 0%, transparent 60%),
+                var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: "Baloo 2", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .logo {
+    width: 52px; height: 52px; border-radius: 16px; flex: none;
+    background: linear-gradient(160deg, #ffd56b, var(--orange));
+    box-shadow: inset 0 -5px 0 rgba(0,0,0,.18), 0 6px 18px rgba(255,138,31,.35);
+    display: grid; place-items: center;
+  }
+  .logo svg { width: 30px; height: 30px; }
+  header h1 { font-size: 26px; line-height: 1.1; margin: 0; font-weight: 800; letter-spacing: .3px; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+  header .spacer { flex: 1; }
+
+  .card {
+    background: linear-gradient(180deg, var(--card-hi), var(--card));
+    border: 2px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .card h2 .chip { margin-left: auto; }
+
+  /* ---- aktif kod vitrini ---- */
+  .hero { text-align: center; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40%;
+    background: radial-gradient(closest-side, rgba(255,203,61,.28), transparent 70%);
+    animation: pulse 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes pulse { 50% { transform: scale(1.08); opacity: .7; } }
+  .hero .label { color: var(--muted); font-weight: 700; letter-spacing: 1px; font-size: 14px; position: relative; }
+  .hero .code {
+    position: relative; display: inline-block; margin: 6px 0 4px;
+    font-size: clamp(34px, 9vw, 54px); font-weight: 800; letter-spacing: 6px;
+    color: var(--gold);
+    background: #1b0f3a; border: 2px solid var(--line); border-radius: 14px;
+    padding: 4px 22px;
+    text-shadow: 0 3px 0 #6b3200;
+  }
+  .hero .meta { position: relative; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-weight: 700; }
+  .coin { display: inline-flex; align-items: center; gap: 6px; color: var(--gold); }
+  .coin i {
+    width: 20px; height: 20px; border-radius: 50%; display: inline-block;
+    background: radial-gradient(circle at 35% 35%, #fff3b0, #ffc93c 45%, #d98e00);
+    box-shadow: inset 0 0 0 2px #b87400;
+  }
+  .empty { color: var(--muted); padding: 10px 0; position: relative; }
+
+  /* ---- liste ---- */
+  .list { display: grid; gap: 10px; }
+  .row {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center;
+    background: #1d1040; border: 2px solid #3a2672; border-radius: 14px; padding: 10px 12px;
+  }
+  .row.active { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,203,61,.15); }
+  .row.past { opacity: .55; }
+  .row .c { font-weight: 800; font-size: 20px; letter-spacing: 2px; }
+  .row .d { grid-column: 1 / 2; color: var(--muted); font-size: 14px; }
+  .row .r { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: center; gap: 8px; }
+  .chip {
+    font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 999px;
+    background: #3a2672; color: var(--muted); white-space: nowrap;
+  }
+  .chip.on { background: var(--gold); color: #4a2600; }
+  .chip.next { background: #1f4d6b; color: #bfe9ff; }
+  .toggle-past { background: none; border: 0; color: var(--muted); font: inherit; text-decoration: underline; cursor: pointer; padding: 8px 0 0; }
+
+  /* ---- form ---- */
+  label { display: block; font-weight: 700; margin: 12px 0 6px; }
+  label small { font-weight: 500; color: var(--muted); }
+  input {
+    width: 100%; font: inherit; font-size: 18px; color: var(--text);
+    background: #1b0f3a; border: 2px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; min-height: 48px;
+  }
+  input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,203,61,.25); }
+  input.code-in { text-transform: uppercase; letter-spacing: 4px; font-weight: 800; font-size: 22px; }
+  .inline { display: flex; gap: 8px; }
+  .inline input { flex: 1; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: 14px; margin-top: 6px; min-height: 1.2em; }
+  .hint.err { color: var(--red); font-weight: 700; }
+  .preview {
+    margin-top: 14px; padding: 12px; border-radius: 12px;
+    background: #1b0f3a; border: 2px dashed var(--line); color: var(--muted); font-size: 15px;
+  }
+  .preview b { color: var(--text); }
+
+  /* ---- butonlar (oyundaki hap butonlar) ---- */
+  .btn {
+    font: inherit; font-weight: 800; font-size: 18px; letter-spacing: .5px;
+    border: 0; border-radius: 999px; padding: 10px 20px; min-height: 48px; cursor: pointer;
+    color: #fff; background: linear-gradient(180deg, #ffab4a, var(--orange));
+    box-shadow: inset 0 -4px 0 var(--orange-dk), 0 4px 12px rgba(0,0,0,.25);
+    transition: transform .08s ease, filter .15s ease;
+    text-shadow: 0 2px 0 rgba(0,0,0,.2);
+  }
+  .btn:active { transform: translateY(2px) scale(.98); }
+  .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .btn[disabled] { filter: grayscale(.7) brightness(.8); cursor: default; }
+  .btn.gold { color: #4a2600; background: linear-gradient(180deg, #ffe07a, var(--gold)); box-shadow: inset 0 -4px 0 #c98f00, 0 4px 12px rgba(0,0,0,.25); text-shadow: none; }
+  .btn.ghost { background: #3a2672; box-shadow: inset 0 -4px 0 #24174a; font-size: 15px; min-height: 40px; padding: 6px 14px; }
+  .btn.small { font-size: 15px; min-height: 40px; padding: 6px 14px; }
+  .btn.danger { background: linear-gradient(180deg, #ff8078, var(--red)); box-shadow: inset 0 -4px 0 #a82a22; }
+  .btn.wide { width: 100%; margin-top: 16px; font-size: 20px; min-height: 56px; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px; border: 0; cursor: pointer;
+    background: #3a2672; color: var(--muted); display: grid; place-items: center;
+  }
+  .icon-btn:hover { color: var(--red); }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  /* ---- modal + toast ---- */
+  .modal { position: fixed; inset: 0; background: rgba(8,4,20,.7); display: none; place-items: center; padding: 16px; z-index: 10; }
+  .modal.show { display: grid; }
+  .modal .card { max-width: 440px; width: 100%; margin: 0; animation: pop .25s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: scale(.85); opacity: 0; } }
+  .modal .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .modal .actions .btn { flex: 1; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 120px);
+    background: var(--green); color: #06301a; font-weight: 800; padding: 12px 20px; border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35); transition: transform .3s cubic-bezier(.2,1.4,.4,1);
+    max-width: calc(100% - 32px); z-index: 20;
+  }
+  .toast.err { background: var(--red); color: #fff; }
+  .toast.show { transform: translate(-50%, 0); }
+  /* ---- sekmeler ---- */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #1b0f3a; border: 2px solid var(--line); border-radius: 999px; padding: 5px; margin-bottom: 16px; }
+  .tab { font: inherit; font-weight: 800; font-size: 16px; color: var(--muted); background: none; border: 0; border-radius: 999px; min-height: 44px; cursor: pointer; }
+  .tab[aria-selected="true"] { color: #4a2600; background: linear-gradient(180deg, #ffe07a, var(--gold)); box-shadow: inset 0 -3px 0 #c98f00; }
+  .tab:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  /* ---- ayar satirlari ---- */
+  .group-title { font-weight: 800; color: var(--gold); margin: 6px 0 2px; letter-spacing: .5px; }
+  .tune { padding: 10px 0; border-bottom: 1px solid #3a2672; }
+  .tune:last-child { border-bottom: 0; }
+  .tune .top { display: flex; align-items: center; gap: 8px; }
+  .tune .name { font-weight: 700; flex: 1; }
+  .tune .val { font-weight: 800; min-width: 64px; text-align: center; padding: 2px 10px; border-radius: 999px; background: #3a2672; color: var(--muted); }
+  .tune .val.up { background: #1d5a36; color: #b6ffd2; }
+  .tune .val.down { background: #6b2320; color: #ffd0cc; }
+  .tune input[type=range] { width: 100%; min-height: 36px; padding: 0; border: 0; background: none; accent-color: var(--gold); box-shadow: none; }
+  .tune .desc { color: var(--muted); font-size: 13px; }
+  .reset { width: 36px; height: 36px; border-radius: 10px; border: 0; background: #3a2672; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+  .reset:hover { color: var(--gold); }
+  .reset[hidden] { display: none; }
+  .warn { background: #4a2a10; border: 2px solid #8a4b12; color: #ffd9a8; border-radius: 12px; padding: 8px 12px; font-size: 14px; margin: 6px 0 4px; }
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+  .btn-row .btn { flex: 1; }
+  .changes { margin: 0; padding-left: 18px; }
+
+  .note { color: var(--muted); font-size: 14px; }
+  .note a { color: var(--blue); }
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: s .8s linear infinite; vertical-align: -2px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path fill="#fff" d="M12 2c-3.9 0-7 5.6-7 10.2C5 16.6 8.1 22 12 22s7-5.4 7-9.8C19 7.6 15.9 2 12 2z"/><path fill="#ff8a1f" d="M6.2 12.6l2.3-1.6 2 1.6 2-1.6 2 1.6 2-1.6 1.6 1.1c-.1.8-.3 1.6-.6 2.3l-1-.7-2 1.6-2-1.6-2 1.6-2-1.6-1.6 1.1c-.4-.8-.6-1.6-.7-2.5z"/></svg>
+    </div>
+    <div>
+      <h1>Haftanın Kodu</h1>
+      <p>Eggcellent · kod paneli</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost hidden" id="logoutBtn" type="button">Çıkış</button>
+  </header>
+
+  <!-- ============ GIRIS ============ -->
+  <section class="card hidden" id="setupCard">
+    <h2>Bağlan</h2>
+    <p class="note" style="margin-top:0">Bu panel kodları GitHub'daki <b>weekly_codes.json</b> dosyasına yazar; oyun sunucusu oradan alır. Bir kez token girmen yeterli, bu cihazda hatırlanır.</p>
+    <label for="repoIn">Repo <small>(kullanıcı/repo)</small></label>
+    <input id="repoIn" autocomplete="off" spellcheck="false" placeholder="kullaniciadi/eggcellent-kodlar">
+    <label for="tokenIn">GitHub token <small>(bu repoya yazma yetkisi olan)</small></label>
+    <input id="tokenIn" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_...">
+    <div class="hint err" id="setupErr" role="alert"></div>
+    <button class="btn wide" id="connectBtn" type="button">Bağlan</button>
+    <p class="note">Token'ı nereden alacağın: repodaki <b>KURULUM.md</b>. Token sadece bu tarayıcıda saklanır; telefonu kaybedersen GitHub'dan iptal et.</p>
+  </section>
+
+  <!-- ============ PANEL ============ -->
+  <div id="app" class="hidden">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tabCodes" aria-selected="true" aria-controls="codesView" type="button">Haftanın Kodu</button>
+      <button class="tab" role="tab" id="tabTuning" aria-selected="false" aria-controls="tuningView" type="button">Oyuncu Ayarları</button>
+    </div>
+
+    <div id="tuningView" class="hidden" role="tabpanel" aria-labelledby="tabTuning">
+      <section class="card">
+        <h2>Oyuncu ayarları</h2>
+        <p class="note" style="margin-top:0">Yüzdeler oyundaki normal değere göre: <b>%100 = değişiklik yok</b>. Aralık %50 – %200; oyun bunun dışını kabul etmez.</p>
+        <div id="tuneList"></div>
+        <div class="btn-row">
+          <button class="btn ghost" id="tuneResetAll" type="button">Hepsini %100 yap</button>
+          <button class="btn gold" id="tuneSave" type="button">Onayla ve yayınla</button>
+        </div>
+        <p class="note">Sunucu ~2 dakikada alır. Menüdeki oyuncular hemen, Açık Dünya'daki oyuncular bir sonraki girişte yeni ayarla oynar.</p>
+      </section>
+    </div>
+
+    <div id="codesView" role="tabpanel" aria-labelledby="tabCodes">
+    <section class="card hero" aria-live="polite">
+      <div class="label">ŞU AN OYUNDA</div>
+      <div id="heroBody"></div>
+    </section>
+
+    <section class="card">
+      <h2>Yeni kod ekle</h2>
+
+      <label for="codeIn">Kod <small>(A–Z ve 0–9, 3–20 karakter)</small></label>
+      <div class="inline">
+        <input id="codeIn" class="code-in" maxlength="20" autocomplete="off" spellcheck="false" placeholder="YUMURTA5">
+        <button class="btn ghost" id="randBtn" type="button" title="Rastgele kod üret">Üret</button>
+      </div>
+      <div class="hint" id="codeHint"></div>
+
+      <label for="startIn">Başlangıç <small>(Türkiye saati)</small></label>
+      <input id="startIn" type="datetime-local">
+      <div class="hint" id="startHint"></div>
+
+      <label for="coinIn">Ödül <small>(coin, en fazla 1000)</small></label>
+      <input id="coinIn" type="number" inputmode="numeric" min="1" max="1000" value="75">
+      <div class="presets" id="presets"></div>
+      <div class="hint" id="coinHint"></div>
+
+      <div class="preview" id="preview"></div>
+      <button class="btn gold wide" id="addBtn" type="button">Onayla ve yayınla</button>
+      <p class="note">Sunucu yeni takvimi en geç ~2 dakikada alır. Kod başlangıç saatinde oyunda görünür.</p>
+    </section>
+
+    <section class="card">
+      <h2>Takvim <span class="chip" id="countChip"></span></h2>
+      <div class="list" id="list"></div>
+      <button class="toggle-past hidden" id="pastBtn" type="button"></button>
+    </section>
+    </div>
+  </div>
+
+  <p class="note" id="loading"><span class="spin"></span>&nbsp; Yükleniyor…</p>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="card">
+    <h2 id="mTitle"></h2>
+    <div id="mBody"></div>
+    <div class="actions">
+      <button class="btn ghost" id="mCancel" type="button">Vazgeç</button>
+      <button class="btn gold" id="mOk" type="button">Onayla</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+
+// ------------------------------------------------------------------ sabitler
+const FILE = "weekly_codes.json";
+const TZ = 3;                 // Turkiye UTC+3 (sunucudaki timezoneOffsetHours ile ayni)
+const MAX_COINS = 1000;       // sunucudaki WeeklyCodeServer.MaxCoins
+const DEFAULT_DAYS = 7;
+const PRESETS = [
+  { v: 50, t: "50" }, { v: 75, t: "75" }, { v: 100, t: "100" },
+  { v: 150, t: "150" }, { v: 400, t: "400 · basit skin" },
+];
+const WORDS = ["YUMURTA", "TAVSAN", "CIVCIV", "BAHAR", "SURPRIZ", "KABUK", "SEPET", "HAVUC", "KUS", "BAYRAM", "ALTIN", "SANS"];
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+let repo = "", token = "";
+let schedule = { timezoneOffsetHours: TZ, codes: [] };
+let sha = null;               // dosyanin GitHub'daki surumu (guncellerken sart)
+let showPast = false;
+
+// ------------------------------------------------------------------ zaman
+// "2026-10-05 00:00" (Turkiye) -> UTC milisaniye
+function toUtc(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(s || "");
+  if (!m) return NaN;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - TZ, +m[5]);
+}
+function fromUtc(ms) {
+  const d = new Date(ms + TZ * 3600e3);
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+const DAYS = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+function pretty(ms) {
+  const d = new Date(ms + TZ * 3600e3);
+  const hm = String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${DAYS[d.getUTCDay()]} ${hm}`;
+}
+function left(ms) {
+  let s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400); s %= 86400;
+  const h = Math.floor(s / 3600); s %= 3600;
+  const m = Math.floor(s / 60);
+  if (d > 0) return `${d}g ${h}s`;
+  if (h > 0) return `${h}s ${m}dk`;
+  return `${m}dk ${s % 60}sn`;
+}
+
+// Sunucunun hesabinin AYNISI: siraya diz, bitis = min(baslangic+gun, sonrakinin baslangici).
+function timeline(codes) {
+  const list = codes
+    .map((c, i) => ({ ...c, i, s: toUtc(c.start) }))
+    .filter(c => !isNaN(c.s))
+    .sort((a, b) => a.s - b.s);
+  list.forEach((c, k) => {
+    const byDays = c.s + (c.days > 0 ? c.days : DEFAULT_DAYS) * 86400e3;
+    const byNext = k + 1 < list.length ? list[k + 1].s : Infinity;
+    c.e = Math.min(byDays, byNext);
+  });
+  return list;
+}
+
+// ------------------------------------------------------------------ GitHub
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64decode(b64) {
+  const bin = atob(b64.replace(/\n/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+async function gh(method, body, file = FILE) {
+  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`, {
+    method,
+    cache: "no-store",
+    headers: {
+      "Accept": "application/vnd.github+json",
+      "Authorization": "Bearer " + token,
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return res;
+}
+function explain(status) {
+  if (status === 401) return "Token geçersiz ya da süresi dolmuş. Çıkış yapıp yeni token gir.";
+  if (status === 403) return "Bu token'ın repoya yazma izni yok (ya da GitHub istek limiti doldu).";
+  if (status === 404) return "Repo bulunamadı ya da token bu repoyu göremiyor. Repo adını kontrol et.";
+  if (status === 409) return "Dosya bu arada başka biri tarafından değişti. Sayfa yenilendi, tekrar dene.";
+  if (status === 422) return "GitHub isteği reddetti (422). Sayfayı yenileyip tekrar dene.";
+  return "GitHub'a ulaşılamadı (" + status + "). İnterneti kontrol et.";
+}
+
+async function load() {
+  const res = await gh("GET");
+  if (res.status === 404) {
+    // Dosya henuz yok: bos takvimle basla, ilk kayit olusturur. Ama repo da yoksa
+    // (yanlis ad) bu da 404 verir — ilk kayitta anlasilir.
+    schedule = { timezoneOffsetHours: TZ, codes: [] };
+    sha = null;
+    return;
+  }
+  if (!res.ok) throw new Error(explain(res.status));
+  const j = await res.json();
+  sha = j.sha;
+  const parsed = JSON.parse(b64decode(j.content || ""));
+  schedule = { timezoneOffsetHours: parsed.timezoneOffsetHours ?? TZ, codes: Array.isArray(parsed.codes) ? parsed.codes : [] };
+}
+
+// Satir basina bir kod: GitHub'da gecmise bakinca kimin neyi degistirdigi okunur.
+function serialize(s) {
+  const sorted = [...s.codes].sort((a, b) => toUtc(a.start) - toUtc(b.start));
+  const rows = sorted.map(c => {
+    const parts = [`"code": ${JSON.stringify(c.code)}`, `"start": ${JSON.stringify(c.start)}`, `"coins": ${c.coins}`];
+    if (c.days > 0) parts.push(`"days": ${c.days}`);
+    return "    { " + parts.join(", ") + " }";
+  });
+  return `{\n  "timezoneOffsetHours": ${s.timezoneOffsetHours},\n  "codes": [\n${rows.join(",\n")}\n  ]\n}\n`;
+}
+
+async function save(newCodes, message) {
+  const body = { message, content: b64encode(serialize({ ...schedule, codes: newCodes })) };
+  if (sha) body.sha = sha;
+  const res = await gh("PUT", body);
+  if (!res.ok) {
+    if (res.status === 409) { await load(); render(); }
+    throw new Error(explain(res.status));
+  }
+  const j = await res.json();
+  sha = j.content && j.content.sha;
+  schedule.codes = newCodes;
+}
+
+// ------------------------------------------------------------------ oyuncu ayarlari
+// Oyundaki GameTuning.cs ile AYNI alanlar ve aralik. Oyun aralik disini kendisi de kirpar.
+const TUNING_FILE = "tuning.json";
+const T_MIN = 50, T_MAX = 200;   // yuzde
+const TUNE_GROUPS = [
+  { key: "openWorld", title: "Açık Dünya", fields: [
+    { k: "move", n: "Koşu hızı" },
+    { k: "jump", n: "Zıplama gücü", d: "Yükseklik bunun karesiyle artar: %120 ≈ %44 daha yüksek." },
+    { k: "dash", n: "Dash mesafesi" },
+    { k: "damage", n: "Oyuncunun vurduğu hasar" },
+    { k: "health", n: "Oyuncunun canı" },
+    { k: "enemyDamage", n: "Düşmanların vurduğu hasar", d: "Yükseltmek oyunu zorlaştırır." },
+  ]},
+  { key: "match", title: "Maçlar (Yarış · Arena · Düello)", fields: [
+    { k: "move", n: "Koşu hızı" },
+    { k: "jump", n: "Zıplama gücü" },
+  ], warn: "Yarış parkurları normal zıplamaya göre ölçüldü. Zıplamayı düşürmek bazı engelleri geçilmez yapabilir." },
+];
+
+let tuning = defaultTuning();      // GitHub'daki (yayinlanmis) hal
+let tuningDraft = defaultTuning(); // ekrandaki hal
+let tuningSha = null;
+
+function defaultTuning() {
+  const t = {};
+  for (const g of TUNE_GROUPS) { t[g.key] = {}; for (const f of g.fields) t[g.key][f.k] = 1; }
+  return t;
+}
+function clampT(v) {
+  const n = Number(v);
+  return isFinite(n) ? Math.min(T_MAX / 100, Math.max(T_MIN / 100, Math.round(n * 100) / 100)) : 1;
+}
+
+async function loadTuning() {
+  const res = await gh("GET", null, TUNING_FILE);
+  tuning = defaultTuning();
+  tuningSha = null;
+  if (res.status === 404) { tuningDraft = JSON.parse(JSON.stringify(tuning)); return; }
+  if (!res.ok) throw new Error(explain(res.status));
+  const j = await res.json();
+  tuningSha = j.sha;
+  const parsed = JSON.parse(b64decode(j.content || "") || "{}");
+  for (const g of TUNE_GROUPS)
+    for (const f of g.fields)
+      if (parsed[g.key] && parsed[g.key][f.k] != null) tuning[g.key][f.k] = clampT(parsed[g.key][f.k]);
+  tuningDraft = JSON.parse(JSON.stringify(tuning));
+}
+
+function serializeTuning(t) {
+  const blocks = TUNE_GROUPS.map(g => {
+    const rows = g.fields.map(f => `    "${f.k}": ${t[g.key][f.k].toFixed(2)}`);
+    return `  "${g.key}": {\n${rows.join(",\n")}\n  }`;
+  });
+  return "{\n" + blocks.join(",\n") + "\n}\n";
+}
+
+function tuneChanges() {
+  const out = [];
+  for (const g of TUNE_GROUPS)
+    for (const f of g.fields) {
+      const a = tuning[g.key][f.k], b2 = tuningDraft[g.key][f.k];
+      if (Math.abs(a - b2) > 0.001) out.push(`${g.title} · ${f.n}: %${Math.round(a * 100)} → %${Math.round(b2 * 100)}`);
+    }
+  return out;
+}
+
+function renderTuning() {
+  const list = $("tuneList");
+  list.innerHTML = "";
+  for (const g of TUNE_GROUPS) {
+    const title = document.createElement("div"); title.className = "group-title"; title.textContent = g.title;
+    list.append(title);
+    if (g.warn) { const w = document.createElement("div"); w.className = "warn"; w.textContent = g.warn; list.append(w); }
+
+    for (const f of g.fields) {
+      const id = `t_${g.key}_${f.k}`;
+      const row = document.createElement("div"); row.className = "tune";
+      const top = document.createElement("div"); top.className = "top";
+      const name = document.createElement("label"); name.className = "name"; name.htmlFor = id; name.textContent = f.n;
+      name.style.margin = "0";
+      const val = document.createElement("span"); val.className = "val";
+      const reset = document.createElement("button"); reset.className = "reset"; reset.type = "button";
+      reset.textContent = "↺"; reset.title = "%100'e döndür"; reset.setAttribute("aria-label", f.n + " %100'e döndür");
+      const range = document.createElement("input");
+      range.type = "range"; range.id = id; range.min = T_MIN; range.max = T_MAX; range.step = 5;
+
+      const sync = () => {
+        const v = tuningDraft[g.key][f.k];
+        const pct = Math.round(v * 100);
+        range.value = pct;
+        val.textContent = "%" + pct;
+        val.className = "val" + (pct > 100 ? " up" : pct < 100 ? " down" : "");
+        reset.hidden = pct === 100;
+        updateTuneButton();
+      };
+      range.addEventListener("input", () => { tuningDraft[g.key][f.k] = clampT(range.value / 100); sync(); });
+      reset.onclick = () => { tuningDraft[g.key][f.k] = 1; sync(); };
+
+      top.append(name, val, reset);
+      row.append(top, range);
+      if (f.d) { const d = document.createElement("div"); d.className = "desc"; d.textContent = f.d; row.append(d); }
+      list.append(row);
+      sync();
+    }
+  }
+}
+
+function updateTuneButton() {
+  const n = tuneChanges().length;
+  const btn = $("tuneSave");
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? "Değişiklik yok" : `Onayla ve yayınla (${n})`;
+}
+
+async function saveTuning() {
+  const changes = tuneChanges();
+  if (!changes.length) return;
+  const ul = document.createElement("ul"); ul.className = "changes";
+  for (const c of changes) { const li = document.createElement("li"); li.textContent = c; ul.append(li); }
+  const q = document.createElement("p"); q.className = "note"; q.textContent = "Tüm oyuncuları etkiler.";
+  if (!await confirmBox("Ayarlar yayınlansın mı?", [ul, q], "Yayınla")) return;
+
+  const btn = $("tuneSave");
+  const draft = JSON.parse(JSON.stringify(tuningDraft));
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>&nbsp; Kaydediliyor…';
+  try {
+    const cur = await gh("GET", null, TUNING_FILE);   // en guncel surumun sha'si
+    tuningSha = cur.ok ? (await cur.json()).sha : null;
+    const body = { message: "Oyuncu ayarları: " + changes.join("; "), content: b64encode(serializeTuning(draft)) };
+    if (tuningSha) body.sha = tuningSha;
+    const res = await gh("PUT", body, TUNING_FILE);
+    if (!res.ok) throw new Error(explain(res.status));
+    tuningSha = (await res.json()).content?.sha || null;
+    tuning = draft;
+    toast("Ayarlar yayınlandı! Sunucu ~2 dakikada alır.");
+  } catch (e) { toast(e.message, true); }
+  finally { updateTuneButton(); }
+}
+
+function showTab(which) {
+  const codes = which === "codes";
+  $("codesView").classList.toggle("hidden", !codes);
+  $("tuningView").classList.toggle("hidden", codes);
+  $("tabCodes").setAttribute("aria-selected", codes);
+  $("tabTuning").setAttribute("aria-selected", !codes);
+}
+
+// ------------------------------------------------------------------ dogrulama
+function cleanCode(v) {
+  return (v || "").toUpperCase()
+    .replace(/İ/g, "I").replace(/Ş/g, "S").replace(/Ğ/g, "G").replace(/Ü/g, "U").replace(/Ö/g, "O").replace(/Ç/g, "C")
+    .replace(/[^A-Z0-9]/g, "");
+}
+function validate() {
+  const code = cleanCode($("codeIn").value);
+  const startStr = ($("startIn").value || "").replace("T", " ");
+  const s = toUtc(startStr);
+  const coins = Number($("coinIn").value);
+  const errs = {};
+
+  // Bos alan GECERSIZ ama hata yazisi gostermez — kimse daha yazmadan kizilmasin.
+  if (code.length === 0) errs.code = "";
+  else if (code.length < 3) errs.code = "En az 3 karakter.";
+  const tl = timeline(schedule.codes);
+  const same = tl.find(c => c.code === code);
+  if (!errs.code && same && same.e > Date.now()) errs.code = "Bu kod zaten takvimde ve süresi bitmedi.";
+
+  if (isNaN(s)) errs.start = "Tarih ve saat seç.";
+  else if (tl.some(c => c.s === s)) errs.start = "Bu saatte başlayan başka bir kod var.";
+  else if (s < Date.now() - 5 * 60e3) errs.start = "Geçmiş bir zaman. Hemen başlasın istiyorsan şu anki saati seç.";
+
+  if (!Number.isInteger(coins) || coins < 1) errs.coins = "1 ile 1000 arası bir sayı.";
+  else if (coins > MAX_COINS) errs.coins = "En fazla 1000 (sunucu fazlasını kırpar).";
+
+  // errs.code === "" de hata sayilir (Object.keys onu da sayar) — sadece yazisi yok.
+  return { code, startStr, s, coins, errs, ok: Object.keys(errs).length === 0 };
+}
+
+function hint(id, text, err) {
+  const el = $(id);
+  el.textContent = text || "";
+  el.classList.toggle("err", !!err);
+}
+
+function updateForm() {
+  const v = validate();
+  hint("codeHint", v.errs.code || (v.code ? `Oyunda görünecek: ${v.code}` : ""), !!v.errs.code);
+  hint("startHint", v.errs.start || "", !!v.errs.start);
+  hint("coinHint", v.errs.coins || (v.coins >= 300 && v.coins <= MAX_COINS ? "Büyük ödül — ara sıra ver." : ""), !!v.errs.coins);
+
+  const pv = $("preview");
+  if (v.ok) {
+    // Yeni kod eklenince bitisi nereye duser? Sunucuyla ayni hesap.
+    const tl = timeline([...schedule.codes, { code: v.code, start: v.startStr, coins: v.coins }]);
+    const me = tl.find(c => c.code === v.code && c.s === v.s);
+    pv.innerHTML = "";
+    pv.append("Oyuncular ", b(v.code), " kodunu ", b(pretty(me.s)), " – ", b(pretty(me.e)),
+              " arasında kullanabilir, her biri ", b(v.coins + " coin"), " alır.");
+  } else {
+    pv.textContent = "Bilgileri doldurunca burada özet görünür.";
+  }
+  $("addBtn").disabled = !v.ok;
+}
+function b(t) { const e = document.createElement("b"); e.textContent = t; return e; }
+
+// ------------------------------------------------------------------ cizim
+function render() { renderHero(); renderList(); }
+
+// Saniyede bir SADECE bu yenilenir. Liste her saniye yeniden kurulsaydi silme
+// butonlari klavye odagini kaybederdi.
+function renderHero() {
+  const now = Date.now();
+  const tl = timeline(schedule.codes);
+  const active = tl.find(c => c.s <= now && now < c.e);
+  const next = tl.find(c => c.s > now);
+
+  const hero = $("heroBody");
+  hero.innerHTML = "";
+  if (active) {
+    const code = document.createElement("div"); code.className = "code"; code.textContent = active.code;
+    const meta = document.createElement("div"); meta.className = "meta";
+    const coin = document.createElement("span"); coin.className = "coin"; coin.innerHTML = "<i></i>"; coin.append("+" + active.coins);
+    const t = document.createElement("span"); t.textContent = "Bitiş: " + left(active.e - now);
+    meta.append(coin, t);
+    hero.append(code, meta);
+  } else {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = next ? `Aktif kod yok. Sıradaki (${next.code}) ${left(next.s - now)} sonra başlıyor.`
+                         : "Aktif kod yok ve sırada kod yok. Oyunda panel gizli — aşağıdan bir kod ekle.";
+    hero.append(e);
+  }
+}
+
+let listStamp = "";
+function renderList() {
+  const now = Date.now();
+  const tl = timeline(schedule.codes);
+  const list = $("list");
+  list.innerHTML = "";
+  const past = tl.filter(c => c.e <= now);
+  // Once gecerli olanlar (baslangica gore), en sonda bitenler.
+  const shown = tl.filter(c => c.e > now || showPast).sort((a, b) => (a.e <= now) - (b.e <= now) || a.s - b.s);
+  listStamp = tl.map(c => (c.e <= now ? "p" : c.s <= now ? "a" : "n")).join("");
+  for (const c of shown) {
+    const state = c.e <= now ? "past" : c.s <= now ? "active" : "next";
+    const row = document.createElement("div"); row.className = "row " + state;
+    const code = document.createElement("div"); code.className = "c"; code.textContent = c.code;
+    const d = document.createElement("div"); d.className = "d"; d.textContent = `${pretty(c.s)} → ${pretty(c.e)}`;
+    const r = document.createElement("div"); r.className = "r";
+    const coin = document.createElement("span"); coin.className = "coin"; coin.innerHTML = "<i></i>"; coin.append(String(c.coins));
+    const chip = document.createElement("span");
+    chip.className = "chip " + (state === "active" ? "on" : state === "next" ? "next" : "");
+    chip.textContent = state === "active" ? "AKTİF" : state === "next" ? "SIRADA" : "BİTTİ";
+    r.append(coin, chip);
+    if (state === "next") {
+      const del = document.createElement("button");
+      del.className = "icon-btn"; del.type = "button"; del.title = c.code + " kodunu sil";
+      del.setAttribute("aria-label", c.code + " kodunu sil");
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+      del.onclick = () => removeCode(c);
+      r.append(del);
+    }
+    row.append(code, r, d);
+    list.append(row);
+  }
+  if (!shown.length) {
+    const e = document.createElement("p"); e.className = "note"; e.textContent = "Takvim boş.";
+    list.append(e);
+  }
+  $("countChip").textContent = tl.filter(c => c.e > now).length + " geçerli";
+  $("pastBtn").classList.toggle("hidden", past.length === 0);
+  $("pastBtn").textContent = showPast ? "Bitenleri gizle" : `Biten ${past.length} kodu göster`;
+}
+
+// ------------------------------------------------------------------ islemler
+function confirmBox(title, bodyNodes, okText, danger) {
+  return new Promise(resolve => {
+    $("mTitle").textContent = title;
+    const body = $("mBody"); body.innerHTML = ""; body.append(...bodyNodes);
+    const ok = $("mOk");
+    ok.textContent = okText;
+    ok.className = "btn " + (danger ? "danger" : "gold");
+    const m = $("modal"); m.classList.add("show");
+    ok.focus();
+    const close = v => { m.classList.remove("show"); ok.onclick = $("mCancel").onclick = m.onclick = null; resolve(v); };
+    ok.onclick = () => close(true);
+    $("mCancel").onclick = () => close(false);
+    m.onclick = e => { if (e.target === m) close(false); };
+  });
+}
+
+let toastTimer;
+function toast(text, err) {
+  const t = $("toast");
+  t.textContent = text;
+  t.classList.toggle("err", !!err);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), err ? 6000 : 3500);
+}
+
+async function busy(btn, fn) {
+  const old = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>&nbsp; Kaydediliyor…';
+  try { await fn(); }
+  finally { btn.innerHTML = old; btn.disabled = false; updateForm(); }
+}
+
+async function addCode() {
+  const v = validate();
+  if (!v.ok) return;
+  const p = document.createElement("p");
+  p.append("Kod ", b(v.code), ", ", b(pretty(v.s)), " itibarıyla oyunda görünecek ve ", b(v.coins + " coin"), " verecek.");
+  const q = document.createElement("p"); q.className = "note"; q.textContent = "Yayınlandıktan sonra oyuncular alırsa geri alınamaz.";
+  if (!await confirmBox("Yayınlansın mı?", [p, q], "Yayınla")) return;
+
+  await busy($("addBtn"), async () => {
+    try {
+      await load();   // en guncel surumun uzerine ekle
+      await save([...schedule.codes, { code: v.code, start: v.startStr, coins: v.coins }], `Haftanın kodu: ${v.code} (${v.startStr}, ${v.coins} coin)`);
+      toast("Yayınlandı! Sunucu ~2 dakikada alır.");
+      $("codeIn").value = "";
+      $("coinIn").value = 75;   // buyuk odul yanlislikla ust uste verilmesin
+      suggestStart();
+      render();
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+async function removeCode(c) {
+  const p = document.createElement("p");
+  p.append(b(c.code), " (", b(pretty(c.s)), ") takvimden silinsin mi?");
+  if (!await confirmBox("Kodu sil", [p], "Sil", true)) return;
+  try {
+    await load();
+    const rest = schedule.codes.filter(x => !(x.code === c.code && x.start === c.start));
+    await save(rest, `Haftanın kodu silindi: ${c.code}`);
+    toast(c.code + " silindi.");
+    suggestStart();
+    render();
+  } catch (e) { toast(e.message, true); }
+}
+
+// Varsayilan baslangic: takvimdeki SON kodun bittigi an; takvim bossa bir sonraki pazartesi 00:00.
+function suggestStart() {
+  const now = Date.now();
+  const tl = timeline(schedule.codes);
+  let s;
+  const last = tl[tl.length - 1];
+  if (last && last.e > now && isFinite(last.e)) s = last.e;
+  else {
+    const d = new Date(now + TZ * 3600e3);
+    const add = ((8 - d.getUTCDay()) % 7) || 7;
+    s = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + add, -TZ, 0);
+  }
+  $("startIn").value = fromUtc(s).replace(" ", "T");
+  updateForm();
+}
+
+function randomCode() {
+  const w = WORDS[Math.floor(Math.random() * WORDS.length)];
+  $("codeIn").value = w + (10 + Math.floor(Math.random() * 90));
+  updateForm();
+}
+
+// ------------------------------------------------------------------ baslangic
+function guessRepo() {
+  // KULLANICI.github.io/REPO/ adresinde calisiyorsak repo adresten bellidir.
+  const m = /^([^.]+)\.github\.io$/i.exec(location.hostname);
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  return m && seg ? `${m[1]}/${seg}` : "";
+}
+
+async function connect() {
+  const r = $("repoIn").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const t = $("tokenIn").value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(r)) { hint("setupErr", "Repo 'kullanıcı/repo' biçiminde olmalı.", true); return; }
+  if (!t) { hint("setupErr", "Token gir.", true); return; }
+  repo = r; token = t;
+  const btn = $("connectBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>&nbsp; Bağlanıyor…';
+  try {
+    // Yazma izni var mi? Repo bilgisindeki permissions alani soyler.
+    const res = await fetch(`https://api.github.com/repos/${repo}`, { headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" } });
+    if (!res.ok) throw new Error(explain(res.status));
+    const info = await res.json();
+    if (info.permissions && !info.permissions.push) throw new Error("Token repoyu görüyor ama YAZMA izni yok.");
+    await load();
+    await loadTuning();
+    store.set("wc_repo", repo); store.set("wc_token", token);
+    showApp();
+  } catch (e) {
+    hint("setupErr", e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "Bağlan";
+  }
+}
+
+function showSetup() {
+  $("loading").classList.add("hidden");
+  $("app").classList.add("hidden");
+  $("logoutBtn").classList.add("hidden");
+  $("setupCard").classList.remove("hidden");
+  $("repoIn").value = store.get("wc_repo") || guessRepo();
+}
+function showApp() {
+  $("loading").classList.add("hidden");
+  $("setupCard").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+  suggestStart();
+  render();
+  renderTuning();
+}
+
+function init() {
+  const pre = $("presets");
+  for (const p of PRESETS) {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "btn ghost small"; btn.textContent = p.t;
+    btn.onclick = () => { $("coinIn").value = p.v; updateForm(); };
+    pre.append(btn);
+  }
+  $("codeIn").addEventListener("input", () => {
+    const c = cleanCode($("codeIn").value);
+    if (c !== $("codeIn").value) $("codeIn").value = c;
+    updateForm();
+  });
+  $("startIn").addEventListener("input", updateForm);
+  $("coinIn").addEventListener("input", updateForm);
+  $("addBtn").onclick = addCode;
+  $("randBtn").onclick = randomCode;
+  $("connectBtn").onclick = connect;
+  $("tokenIn").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
+  $("pastBtn").onclick = () => { showPast = !showPast; render(); };
+  $("tabCodes").onclick = () => showTab("codes");
+  $("tabTuning").onclick = () => showTab("tuning");
+  $("tuneResetAll").onclick = () => { tuningDraft = defaultTuning(); renderTuning(); };
+  $("tuneSave").onclick = saveTuning;
+  $("logoutBtn").onclick = () => { store.del("wc_token"); token = ""; showSetup(); };
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("modal").classList.contains("show")) $("mCancel").click(); });
+  setInterval(() => {
+    if ($("app").classList.contains("hidden")) return;
+    renderHero();
+    // Liste sadece bir kodun durumu degisince (sirada -> aktif -> bitti) yeniden kurulur.
+    const now = Date.now();
+    const st = timeline(schedule.codes).map(c => (c.e <= now ? "p" : c.s <= now ? "a" : "n")).join("");
+    if (st !== listStamp) renderList();
+  }, 1000);
+
+  repo = store.get("wc_repo"); token = store.get("wc_token");
+  if (!repo || !token) { showSetup(); return; }
+  load().then(loadTuning).then(showApp).catch(e => { showSetup(); hint("setupErr", e.message, true); });
+}
+
+init();
+</script>
+</body>
+</html>

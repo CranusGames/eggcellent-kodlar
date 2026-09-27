@@ -1,0 +1,9 @@
+{
+  "timezoneOffsetHours": 3,
+  "codes": [
+    { "code": "YUMURTA1", "start": "2026-10-05 00:00", "coins": 75 },
+    { "code": "TAVSAN2", "start": "2026-10-12 00:00", "coins": 100 },
+    { "code": "CIVCIV3", "start": "2026-10-19 00:00", "coins": 150 },
+    { "code": "SURPRIZ4", "start": "2026-10-26 00:00", "coins": 400 }
+  ]
+}
