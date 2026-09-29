@@ -10,5 +10,10 @@
   "match": {
     "move": 1.00,
     "jump": 1.00
+  },
+  "announcement": {
+    "tr": "sunucu hiç bakımda olacak mı ki ne",
+    "en": "omgg riliiii",
+    "until": ""
   }
 }
