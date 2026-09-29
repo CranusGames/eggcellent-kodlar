@@ -187,6 +187,20 @@
   .tab[aria-selected="true"] { color: #4a2600; background: linear-gradient(180deg, #ffe07a, var(--gold)); box-shadow: inset 0 -3px 0 #c98f00; }
   .tab:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
+  .tabs.tabs3 { grid-template-columns: 1fr 1fr 1fr; }
+  .tabs.tabs3 .tab { font-size: 14px; padding: 0 4px; }
+
+  /* ---- duyuru onizleme (oyundaki bant) ---- */
+  .news-preview {
+    display: flex; align-items: center; gap: 10px; margin: 4px 0 8px;
+    background: #1e0f3d; border: 2px solid #4d3490; border-radius: 16px; padding: 8px 10px;
+    box-shadow: 0 0 24px rgba(255,180,60,.25);
+  }
+  .nb-badge { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+              background: linear-gradient(180deg, #ffe07a, var(--gold)); color: #5a2800; font-weight: 800; }
+  .nb-text { flex: 1; font-weight: 700; color: #fff3d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nb-x { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #d8323a; color: #fff; font-weight: 800; }
+
   /* ---- ayar satirlari ---- */
   .group-title { font-weight: 800; color: var(--gold); margin: 6px 0 2px; letter-spacing: .5px; }
   .tune { padding: 10px 0; border-bottom: 1px solid #3a2672; }
@@ -268,9 +282,42 @@
 
   <!-- ============ PANEL ============ -->
   <div id="app" class="hidden">
-    <div class="tabs" role="tablist">
+    <div class="tabs tabs3" role="tablist">
       <button class="tab" role="tab" id="tabCodes" aria-selected="true" aria-controls="codesView" type="button">Haftanın Kodu</button>
       <button class="tab" role="tab" id="tabTuning" aria-selected="false" aria-controls="tuningView" type="button">Oyuncu Ayarları</button>
+      <button class="tab" role="tab" id="tabNews" aria-selected="false" aria-controls="newsView" type="button">Duyuru</button>
+    </div>
+
+    <div id="newsView" class="hidden" role="tabpanel" aria-labelledby="tabNews">
+      <section class="card">
+        <h2>Menü duyurusu <span class="chip" id="newsChip"></span></h2>
+        <p class="note" style="margin-top:0">Ana menünün üstünde bant olarak görünür. Uzun metin kayarak akar. Oyuncu X ile kapatabilir; yeni bir duyuru yayınlanınca tekrar çıkar.</p>
+
+        <div class="news-preview" aria-hidden="true">
+          <span class="nb-badge">!</span>
+          <span class="nb-text" id="newsPreviewText">Duyuru metni burada görünür</span>
+          <span class="nb-x">×</span>
+        </div>
+
+        <label for="newsTr">Türkçe metin <small>(en fazla 160 karakter)</small></label>
+        <input id="newsTr" maxlength="160" autocomplete="off" placeholder="Sunucu bu gece 02:00–03:00 arası bakımda.">
+        <div class="hint" id="newsTrHint"></div>
+
+        <label for="newsEn">İngilizce metin <small>(boş kalırsa İngilizce oyunculara da Türkçesi gösterilir)</small></label>
+        <input id="newsEn" maxlength="160" autocomplete="off" placeholder="Server maintenance tonight 02:00–03:00.">
+
+        <label for="newsUntil">Bitiş <small>(Türkiye saati — boş = elle kaldırana kadar)</small></label>
+        <div class="inline">
+          <input id="newsUntil" type="datetime-local">
+          <button class="btn ghost small" id="newsNoEnd" type="button">Süresiz</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn danger" id="newsClear" type="button">Duyuruyu kaldır</button>
+          <button class="btn gold" id="newsSave" type="button">Yayınla</button>
+        </div>
+        <p class="note">Menüdeki oyuncular ~2 dakikada görür.</p>
+      </section>
     </div>
 
     <div id="tuningView" class="hidden" role="tabpanel" aria-labelledby="tabTuning">
@@ -542,6 +589,8 @@ const TUNE_GROUPS = [
 let tuning = defaultTuning();      // GitHub'daki (yayinlanmis) hal
 let tuningDraft = defaultTuning(); // ekrandaki hal
 let tuningSha = null;
+// Duyuru AYNI dosyada (tuning.json). Oyun bunu GameTuning.Announcement olarak okur.
+let announcement = { tr: "", en: "", until: "" };
 
 function defaultTuning() {
   const t = {};
@@ -553,27 +602,46 @@ function clampT(v) {
   return isFinite(n) ? Math.min(T_MAX / 100, Math.max(T_MIN / 100, Math.round(n * 100) / 100)) : 1;
 }
 
-async function loadTuning() {
+// GitHub'daki EN GUNCEL tuning.json: { sha, tune, ann }. Ayar ve duyuru ayni dosyada;
+// her kayit once bunu okuyup SADECE kendi kismini degistiriyor — biri digerini eski
+// haliyle ezmesin (iki cihazdan ayni anda duzenlenebilir).
+async function fetchTuning() {
   const res = await gh("GET", null, TUNING_FILE);
-  tuning = defaultTuning();
-  tuningSha = null;
-  if (res.status === 404) { tuningDraft = JSON.parse(JSON.stringify(tuning)); return; }
+  const tune = defaultTuning();
+  let ann = { tr: "", en: "", until: "" };
+  if (res.status === 404) return { sha: null, tune, ann };
   if (!res.ok) throw new Error(explain(res.status));
   const j = await res.json();
-  tuningSha = j.sha;
   const parsed = JSON.parse(b64decode(j.content || "") || "{}");
   for (const g of TUNE_GROUPS)
     for (const f of g.fields)
-      if (parsed[g.key] && parsed[g.key][f.k] != null) tuning[g.key][f.k] = clampT(parsed[g.key][f.k]);
+      if (parsed[g.key] && parsed[g.key][f.k] != null) tune[g.key][f.k] = clampT(parsed[g.key][f.k]);
+  if (parsed.announcement) ann = { tr: parsed.announcement.tr || "", en: parsed.announcement.en || "", until: parsed.announcement.until || "" };
+  return { sha: j.sha, tune, ann };
+}
+
+async function loadTuning() {
+  const t = await fetchTuning();
+  tuning = t.tune; tuningSha = t.sha; announcement = t.ann;
   tuningDraft = JSON.parse(JSON.stringify(tuning));
 }
 
-function serializeTuning(t) {
+function serializeTuning(t, ann) {
   const blocks = TUNE_GROUPS.map(g => {
     const rows = g.fields.map(f => `    "${f.k}": ${t[g.key][f.k].toFixed(2)}`);
     return `  "${g.key}": {\n${rows.join(",\n")}\n  }`;
   });
+  const a = ann || { tr: "", en: "", until: "" };
+  blocks.push(`  "announcement": {\n    "tr": ${JSON.stringify(a.tr || "")},\n    "en": ${JSON.stringify(a.en || "")},\n    "until": ${JSON.stringify(a.until || "")}\n  }`);
   return "{\n" + blocks.join(",\n") + "\n}\n";
+}
+
+async function putTuning(tune, ann, sha, message) {
+  const body = { message, content: b64encode(serializeTuning(tune, ann)) };
+  if (sha) body.sha = sha;
+  const res = await gh("PUT", body, TUNING_FILE);
+  if (!res.ok) throw new Error(explain(res.status));
+  tuningSha = (await res.json()).content?.sha || null;
 }
 
 function tuneChanges() {
@@ -646,25 +714,85 @@ async function saveTuning() {
   const draft = JSON.parse(JSON.stringify(tuningDraft));
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>&nbsp; Kaydediliyor…';
   try {
-    const cur = await gh("GET", null, TUNING_FILE);   // en guncel surumun sha'si
-    tuningSha = cur.ok ? (await cur.json()).sha : null;
-    const body = { message: "Oyuncu ayarları: " + changes.join("; "), content: b64encode(serializeTuning(draft)) };
-    if (tuningSha) body.sha = tuningSha;
-    const res = await gh("PUT", body, TUNING_FILE);
-    if (!res.ok) throw new Error(explain(res.status));
-    tuningSha = (await res.json()).content?.sha || null;
+    const latest = await fetchTuning();               // duyuruyu GUNCEL haliyle koru
+    await putTuning(draft, latest.ann, latest.sha, "Oyuncu ayarları: " + changes.join("; "));
     tuning = draft;
+    announcement = latest.ann;
     toast("Ayarlar yayınlandı! Sunucu ~2 dakikada alır.");
   } catch (e) { toast(e.message, true); }
   finally { updateTuneButton(); }
 }
 
+// ------------------------------------------------------------------ duyuru
+function renderNews() {
+  $("newsTr").value = announcement.tr;
+  $("newsEn").value = announcement.en;
+  $("newsUntil").value = announcement.until ? announcement.until.replace(" ", "T") : "";
+  updateNews();
+}
+
+function newsDraft() {
+  return {
+    tr: $("newsTr").value.replace(/\s+/g, " ").trim(),
+    en: $("newsEn").value.replace(/\s+/g, " ").trim(),
+    until: ($("newsUntil").value || "").replace("T", " "),
+  };
+}
+
+function updateNews() {
+  const d = newsDraft();
+  $("newsPreviewText").textContent = d.tr || "Duyuru metni burada görünür";
+  hint("newsTrHint", d.tr ? `${d.tr.length} / 160` : "", false);
+
+  // Yayindaki duyurunun durumu
+  const a = announcement;
+  const ended = a.until && toUtc(a.until) <= Date.now();
+  const chip = $("newsChip");
+  chip.textContent = !a.tr ? "YOK" : ended ? "SÜRESİ DOLDU" : "YAYINDA";
+  chip.className = "chip " + (!a.tr || ended ? "" : "on");
+
+  const changed = d.tr !== a.tr || d.en !== a.en || d.until !== a.until;
+  const untilBad = d.until && isNaN(toUtc(d.until));
+  $("newsSave").disabled = !d.tr || !changed || untilBad;
+  $("newsClear").disabled = !a.tr;
+}
+
+async function publishNews(next, message, okText) {
+  const btn = next.tr ? $("newsSave") : $("newsClear");
+  const old = btn.textContent;
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>&nbsp; Kaydediliyor…';
+  try {
+    const latest = await fetchTuning();               // ayarlari GUNCEL haliyle koru
+    await putTuning(latest.tune, next, latest.sha, message);
+    announcement = next;
+    tuning = latest.tune;
+    toast(okText);
+  } catch (e) { toast(e.message, true); }
+  finally { btn.textContent = old; renderNews(); }
+}
+
+async function saveNews() {
+  const d = newsDraft();
+  if (!d.tr) return;
+  const p = document.createElement("p");
+  p.append("Ana menüde gösterilecek: ", b(d.tr));
+  const q = document.createElement("p"); q.className = "note";
+  q.textContent = d.until ? `Bitiş: ${pretty(toUtc(d.until))}` : "Süresiz — elle kaldırana kadar görünür.";
+  if (!await confirmBox("Duyuru yayınlansın mı?", [p, q], "Yayınla")) return;
+  await publishNews(d, "Duyuru: " + d.tr, "Duyuru yayınlandı! Oyuncular ~2 dakikada görür.");
+}
+
+async function clearNews() {
+  const p = document.createElement("p"); p.append("Menüdeki duyuru kaldırılsın mı?");
+  if (!await confirmBox("Duyuruyu kaldır", [p], "Kaldır", true)) return;
+  await publishNews({ tr: "", en: "", until: "" }, "Duyuru kaldırıldı", "Duyuru kaldırıldı.");
+}
+
 function showTab(which) {
-  const codes = which === "codes";
-  $("codesView").classList.toggle("hidden", !codes);
-  $("tuningView").classList.toggle("hidden", codes);
-  $("tabCodes").setAttribute("aria-selected", codes);
-  $("tabTuning").setAttribute("aria-selected", !codes);
+  for (const [tab, view, name] of [["tabCodes", "codesView", "codes"], ["tabTuning", "tuningView", "tuning"], ["tabNews", "newsView", "news"]]) {
+    $(view).classList.toggle("hidden", which !== name);
+    $(tab).setAttribute("aria-selected", which === name);
+  }
 }
 
 // ------------------------------------------------------------------ ozel skin havuzu
@@ -1302,6 +1430,7 @@ function showApp() {
   suggestStart();
   render();
   renderTuning();
+  renderNews();
 }
 
 function init() {
@@ -1326,6 +1455,11 @@ function init() {
   $("pastBtn").onclick = () => { showPast = !showPast; render(); };
   $("tabCodes").onclick = () => showTab("codes");
   $("tabTuning").onclick = () => showTab("tuning");
+  $("tabNews").onclick = () => showTab("news");
+  for (const id of ["newsTr", "newsEn", "newsUntil"]) $(id).addEventListener("input", updateNews);
+  $("newsNoEnd").onclick = () => { $("newsUntil").value = ""; updateNews(); };
+  $("newsSave").onclick = saveNews;
+  $("newsClear").onclick = clearNews;
   $("tuneResetAll").onclick = () => { tuningDraft = defaultTuning(); renderTuning(); };
   $("tuneSave").onclick = saveTuning;
   $("modeSkin").onclick = () => setRewardMode("skin");
