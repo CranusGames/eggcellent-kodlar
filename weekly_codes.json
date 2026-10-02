@@ -31,6 +31,7 @@
     { "code": "THUNDER", "start": "2027-04-05 00:00", "coins": 0, "skin": "kodskin_neondevre_8f1471" },
     { "code": "TULIP", "start": "2027-04-12 00:00", "coins": 150 },
     { "code": "KIDSDAY", "start": "2027-04-19 00:00", "coins": 200, "skin": "kodskin_holografik_5cbec7" },
-    { "code": "PHARAOH", "start": "2027-04-26 00:00", "coins": 0, "skin": "kodskin_metaloyma_66ac44" }
+    { "code": "PHARAOH", "start": "2027-04-26 00:00", "coins": 0, "skin": "kodskin_metaloyma_66ac44" },
+    { "code": "SANS56", "start": "2027-05-03 00:00", "coins": 100 }
   ]
 }
